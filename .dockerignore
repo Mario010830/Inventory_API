@@ -1,0 +1,11 @@
+**/.git
+**/.vs
+**/bin
+**/obj
+**/publish
+**/*.user
+**/logs
+**/*.log
+**/appsettings.json
+**/appsettings.*.json
+**/APICore.Test
