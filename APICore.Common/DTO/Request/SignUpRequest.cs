@@ -25,9 +25,6 @@ namespace APICore.Common.DTO.Request
         public string Phone { get; set; }
 
         [Required]
-        public int Gender { get; set; }
-
-        [Required]
         public int OrganizationId { get; set; }
     }
 }

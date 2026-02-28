@@ -92,7 +92,6 @@ namespace APICore.Tests.Integration.Account
             {
                 Email = @"carlos@itguy.com",
                 FullName = "Carlos Perez",
-                Gender = 0,
                 Phone = "+53 12345678",
                 Birthday = DateTime.Now,
                 Password = @"S3cretP@$$",
@@ -119,7 +118,6 @@ namespace APICore.Tests.Integration.Account
             {
                 Email = "",
                 FullName = "Pepe Perez",
-                Gender = 0,
                 Phone = "+53 12345678",
                 Birthday = DateTime.Now,
                 Password = @"S3cretP@$$",
@@ -169,7 +167,6 @@ namespace APICore.Tests.Integration.Account
             {
                 Email = @"pepe2@itguy.com",
                 FullName = "Pepe Perez",
-                Gender = 0,
                 Phone = "+53 12345678",
                 Birthday = DateTime.Now,
                 Password = "",
@@ -197,7 +194,6 @@ namespace APICore.Tests.Integration.Account
             {
                 Email = "pepe2@itguy.com",
                 FullName = "Pepe Perez",
-                Gender = 0,
                 Phone = "+53 12345678",
                 Birthday = DateTime.Now,
                 Password = "S3cr",
@@ -225,7 +221,6 @@ namespace APICore.Tests.Integration.Account
             {
                 Email = "pepe2@itguy.com",
                 FullName = "Pepe Perez",
-                Gender = 0,
                 Phone = "+53 12345678",
                 Birthday = DateTime.Now,
                 Password = @"Z3cretP@$$",

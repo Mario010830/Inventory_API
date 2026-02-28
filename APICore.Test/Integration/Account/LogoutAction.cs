@@ -1,4 +1,4 @@
-﻿using APICore.API.Controllers;
+using APICore.API.Controllers;
 using APICore.Data;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
@@ -60,7 +60,6 @@ namespace APICore.Tests.Integration.Account
                     Id = 2,
                     Email = "carlos@itguy.com",
                     FullName = "Carlos Delgado",
-                    Gender = 0,
                     Phone = "+53 12345678",
                     Password = @"gM3vIavHvte3fimrk2uVIIoAB//f2TmRuTy4IWwNWp0=",
                     Status = StatusEnum.ACTIVE

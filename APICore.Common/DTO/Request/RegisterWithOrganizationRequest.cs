@@ -34,8 +34,5 @@ namespace APICore.Common.DTO.Request
         public DateTime Birthday { get; set; }
 
         public string Phone { get; set; }
-
-        [Required]
-        public int Gender { get; set; }
     }
 }

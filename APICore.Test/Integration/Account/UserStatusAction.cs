@@ -1,4 +1,4 @@
-﻿using APICore.API.Controllers;
+using APICore.API.Controllers;
 using APICore.Common.DTO.Request;
 using APICore.Services;
 using APICore.Services.Exceptions;
@@ -61,7 +61,6 @@ namespace APICore.Tests.Integration.Account
                     Id = 4,
                     Email = "pepe@itguy.com",
                     FullName = "Pepe Delgado",
-                    Gender = 0,
                     Phone = "+53 12345678",
                     Password = @"gM3vIavHvte3fimrk2uVIIoAB//f2TmRuTy4IWwNWp0=",
                     Status = StatusEnum.ACTIVE,
@@ -71,7 +70,6 @@ namespace APICore.Tests.Integration.Account
                     Id = 5,
                     Email = "inactive@itguy.com",
                     FullName = "Out Delgado",
-                    Gender = 0,
                     Phone = "+53 12345678",
                     Password = @"gM3vIavHvte3fimrk2uVIIoAB//f2TmRuTy4IWwNWp0=",
                     Status = StatusEnum.INACTIVE,
