@@ -10,6 +10,8 @@ namespace APICore.Common.DTO.Response
         public int LocationId { get; set; }
         public string? LocationName { get; set; }
         public string Type { get; set; }
+        public string? Cause { get; set; }
+        public int? SaleOrderId { get; set; }
         public decimal Quantity { get; set; }
         public decimal? PreviousStock { get; set; }
         public decimal? NewStock { get; set; }

@@ -11,6 +11,8 @@ namespace APICore.Data.Entities
         public string Name { get; set; }
         public string Code { get; set; }
         public string? Description { get; set; }
+       
+        public string? WhatsAppContact { get; set; }
 
         public virtual Organization Organization { get; set; } = null!;
         public virtual ICollection<User> Users { get; set; } = new List<User>();

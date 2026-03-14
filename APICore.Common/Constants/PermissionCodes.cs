@@ -62,5 +62,12 @@ namespace APICore.Common.Constants
         public const string LeadCreate = "lead.create";
         public const string LeadUpdate = "lead.update";
         public const string LeadDelete = "lead.delete";
+
+        public const string SaleRead = "sale.read";
+        public const string SaleCreate = "sale.create";
+        public const string SaleUpdate = "sale.update";
+        public const string SaleCancel = "sale.cancel";
+        public const string SaleReport = "sale.report";
+        public const string SaleReturnCreate = "sale.return.create";
     }
 }

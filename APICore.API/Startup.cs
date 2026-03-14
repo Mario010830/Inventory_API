@@ -76,8 +76,8 @@ namespace APICore.API
             services.AddScoped<IInventorySettings, InventorySettingsProvider>();
             services.AddTransient<IEmailService, EmailService>();
             services.AddTransient<ILogService, LogService>();
-            services.Configure<S3StorageOptions>(Configuration.GetSection(S3StorageOptions.SectionName));
-            services.AddTransient<IStorageService, S3StorageService>();
+            services.Configure<LocalStorageOptions>(Configuration.GetSection(LocalStorageOptions.SectionName));
+            services.AddTransient<IStorageService, APICore.API.Services.LocalStorageService>();
             services.AddTransient<IProductService, ProductService>();
             services.AddTransient<IProductCategoryService, ProductCategoryService>();
             services.AddTransient<IInventoryService, InventoryService>();
@@ -89,6 +89,9 @@ namespace APICore.API
             services.AddTransient<IContactService, ContactService>();
             services.AddTransient<ILeadService, LeadService>();
             services.AddTransient<IDashboardStatsService, DashboardStatsService>();
+            services.AddTransient<ISaleOrderService, SaleOrderService>();
+            services.AddTransient<ISaleReturnService, SaleReturnService>();
+            services.AddTransient<IPublicCatalogService, PublicCatalogService>();
 
             services.AddScoped<ICurrentUserContextAccessor, CurrentUserContextAccessor>();
             services.AddScoped<ICurrentUserContextProvider, CurrentUserContextProvider>();
@@ -162,7 +165,7 @@ namespace APICore.API
                 endpoints.MapControllers();
             });
 
-           //DatabaseSeed.SeedDatabaseAsync(services).Wait();
+          // DatabaseSeed.SeedDatabaseAsync(services).Wait();
         }
     }
 }

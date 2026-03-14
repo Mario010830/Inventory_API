@@ -22,6 +22,10 @@ namespace APICore.Data.UoW
         IGenericRepository<RolePermission> RolePermissionRepository { get; set; }
         IGenericRepository<Contact> ContactRepository { get; set; }
         IGenericRepository<Lead> LeadRepository { get; set; }
+        IGenericRepository<SaleOrder> SaleOrderRepository { get; set; }
+        IGenericRepository<SaleOrderItem> SaleOrderItemRepository { get; set; }
+        IGenericRepository<SaleReturn> SaleReturnRepository { get; set; }
+        IGenericRepository<SaleReturnItem> SaleReturnItemRepository { get; set; }
         Task<int> CommitAsync();
     }
 }

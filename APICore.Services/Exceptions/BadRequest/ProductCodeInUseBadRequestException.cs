@@ -6,7 +6,7 @@ namespace APICore.Services.Exceptions
     {
         public ProductCodeInUseBadRequestException(IStringLocalizer<object> localizer) : base()
         {
-            CustomCode = 400002;
+            CustomCode = 400033;
             CustomMessage = localizer.GetString(CustomCode.ToString());
         }
     }

@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace APICore.Data.Migrations
 {
     [DbContext(typeof(CoreDbContext))]
-    [Migration("20260214122407_AddUserOrganizationAndSuperAdminRole")]
-    partial class AddUserOrganizationAndSuperAdminRole
+    [Migration("20260312025628_InitialMigrate")]
+    partial class InitialMigrate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,62 @@ namespace APICore.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("APICore.Data.Entities.Contact", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("AssignedUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Company")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContactPerson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Origin")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedUserId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("Contacts");
+                });
 
             modelBuilder.Entity("APICore.Data.Entities.Inventory", b =>
                 {
@@ -125,6 +181,67 @@ namespace APICore.Data.Migrations
                     b.ToTable("InventoryMovements");
                 });
 
+            modelBuilder.Entity("APICore.Data.Entities.Lead", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AssignedUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Company")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContactPerson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ConvertedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ConvertedToContactId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Origin")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedUserId");
+
+                    b.HasIndex("ConvertedToContactId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("Leads");
+                });
+
             modelBuilder.Entity("APICore.Data.Entities.Location", b =>
                 {
                     b.Property<int>("Id")
@@ -183,6 +300,9 @@ namespace APICore.Data.Migrations
 
                     b.Property<string>("Module")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("OrganizationId")
+                        .HasColumnType("int");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
@@ -283,12 +403,17 @@ namespace APICore.Data.Migrations
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("Precio")
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("Products");
                 });
@@ -322,7 +447,12 @@ namespace APICore.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("ProductCategories");
                 });
@@ -350,7 +480,12 @@ namespace APICore.Data.Migrations
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("OrganizationId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("Roles");
                 });
@@ -380,6 +515,9 @@ namespace APICore.Data.Migrations
 
                     b.Property<string>("Key")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("OrganizationId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Value")
                         .HasColumnType("nvarchar(max)");
@@ -421,10 +559,15 @@ namespace APICore.Data.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Phone")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("Suppliers");
                 });
@@ -541,6 +684,23 @@ namespace APICore.Data.Migrations
                     b.ToTable("UserToken");
                 });
 
+            modelBuilder.Entity("APICore.Data.Entities.Contact", b =>
+                {
+                    b.HasOne("APICore.Data.Entities.User", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId");
+
+                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AssignedUser");
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("APICore.Data.Entities.Inventory", b =>
                 {
                     b.HasOne("APICore.Data.Entities.Location", "Location")
@@ -585,6 +745,29 @@ namespace APICore.Data.Migrations
                     b.Navigation("Supplier");
                 });
 
+            modelBuilder.Entity("APICore.Data.Entities.Lead", b =>
+                {
+                    b.HasOne("APICore.Data.Entities.User", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId");
+
+                    b.HasOne("APICore.Data.Entities.Contact", "ConvertedToContact")
+                        .WithMany()
+                        .HasForeignKey("ConvertedToContactId");
+
+                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AssignedUser");
+
+                    b.Navigation("ConvertedToContact");
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("APICore.Data.Entities.Location", b =>
                 {
                     b.HasOne("APICore.Data.Entities.Organization", "Organization")
@@ -604,7 +787,36 @@ namespace APICore.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
+                        .WithMany("Products")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Category");
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("APICore.Data.Entities.ProductCategory", b =>
+                {
+                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
+                        .WithMany("ProductCategories")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("APICore.Data.Entities.Role", b =>
+                {
+                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
+                        .WithMany("Roles")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.RolePermission", b =>
@@ -624,6 +836,17 @@ namespace APICore.Data.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("APICore.Data.Entities.Supplier", b =>
+                {
+                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
+                        .WithMany("Suppliers")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.User", b =>
@@ -670,6 +893,14 @@ namespace APICore.Data.Migrations
             modelBuilder.Entity("APICore.Data.Entities.Organization", b =>
                 {
                     b.Navigation("Locations");
+
+                    b.Navigation("ProductCategories");
+
+                    b.Navigation("Products");
+
+                    b.Navigation("Roles");
+
+                    b.Navigation("Suppliers");
 
                     b.Navigation("Users");
                 });

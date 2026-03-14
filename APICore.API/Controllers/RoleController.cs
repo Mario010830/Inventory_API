@@ -1,5 +1,6 @@
 using APICore.API.Authorization;
 using APICore.API.BasicResponses;
+using APICore.API.Utils;
 using APICore.Common.Constants;
 using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
@@ -24,6 +25,7 @@ namespace APICore.API.Controllers
             _roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
         }
 
+       
         [HttpGet("permissions")]
         [RequirePermission(PermissionCodes.RoleRead)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
@@ -31,6 +33,19 @@ namespace APICore.API.Controllers
         {
             var list = await _roleService.GetAllPermissions();
             return Ok(new ApiOkResponse(list));
+        }
+
+       
+        [HttpGet("my-role")]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        public async Task<IActionResult> GetMyRole()
+        {
+            var userId = User.GetUserIdFromToken();
+            var role = await _roleService.GetRoleByUserIdAsync(userId);
+            if (role == null)
+                return NotFound(new ApiResponse(404, "El usuario no tiene rol asignado."));
+            return Ok(new ApiOkResponse(role));
         }
 
         [HttpGet]

@@ -12,7 +12,8 @@ namespace APICore.Services
         Task DeleteProduct(int id);
         Task UpdateProduct(int id, UpdateProductRequest request);
         Task<Product> GetProduct(int id);
-        Task<PaginatedList<Product>> GetAllProducts(int? page, int? perPage, string sortOrder = null);
+        Task<PaginatedList<Product>> GetAllProducts(int? page, int? perPage, string sortOrder = null, bool? onlyForSale = null);
+        Task<PaginatedList<Product>> GetCatalog(int? page, int? perPage);
         Task<decimal> GetTotalStockForProductAsync(int productId);
         Task<Dictionary<int, decimal>> GetTotalStockByProductIdsAsync(IEnumerable<int> productIds);
     }

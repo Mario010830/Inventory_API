@@ -12,6 +12,7 @@ namespace APICore.Services
         Task<RoleResponse> CreateRole(CreateRoleRequest request);
         Task DeleteRole(int id);
         Task<RoleResponse> GetRole(int id);
+        Task<RoleResponse?> GetRoleByUserIdAsync(int userId);
         Task<PaginatedList<RoleResponse>> GetAllRoles(int? page, int? perPage, string sortOrder = null);
         Task UpdateRole(int id, UpdateRoleRequest request);
         Task<IEnumerable<PermissionResponse>> GetAllPermissions();

@@ -28,6 +28,10 @@ namespace APICore.Data.UoW
             RolePermissionRepository ??= new GenericRepository<RolePermission>(_context);
             ContactRepository ??= new GenericRepository<Contact>(_context);
             LeadRepository ??= new GenericRepository<Lead>(_context);
+            SaleOrderRepository ??= new GenericRepository<SaleOrder>(_context);
+            SaleOrderItemRepository ??= new GenericRepository<SaleOrderItem>(_context);
+            SaleReturnRepository ??= new GenericRepository<SaleReturn>(_context);
+            SaleReturnItemRepository ??= new GenericRepository<SaleReturnItem>(_context);
         }
 
         public IGenericRepository<User> UserRepository { get; set; }
@@ -46,6 +50,10 @@ namespace APICore.Data.UoW
         public IGenericRepository<RolePermission> RolePermissionRepository { get; set; }
         public IGenericRepository<Contact> ContactRepository { get; set; }
         public IGenericRepository<Lead> LeadRepository { get; set; }
+        public IGenericRepository<SaleOrder> SaleOrderRepository { get; set; }
+        public IGenericRepository<SaleOrderItem> SaleOrderItemRepository { get; set; }
+        public IGenericRepository<SaleReturn> SaleReturnRepository { get; set; }
+        public IGenericRepository<SaleReturnItem> SaleReturnItemRepository { get; set; }
 
         public async Task<int> CommitAsync()
         {

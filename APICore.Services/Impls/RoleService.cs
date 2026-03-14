@@ -1,3 +1,4 @@
+using APICore.Common.Constants;
 using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
 using APICore.Data;
@@ -88,9 +89,22 @@ namespace APICore.Services.Impls
             return ToRoleResponse(role, permissionIds);
         }
 
+        public async Task<RoleResponse?> GetRoleByUserIdAsync(int userId)
+        {
+            if (userId <= 0) return null;
+            var user = await _uow.UserRepository.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user?.RoleId == null) return null;
+            var role = await _uow.RoleRepository.FirstOrDefaultAsync(r => r.Id == user.RoleId.Value);
+            if (role == null) return null;
+            var permissionIds = await _uow.RolePermissionRepository.FindBy(rp => rp.RoleId == role.Id)
+                .Select(rp => rp.PermissionId)
+                .ToListAsync();
+            return ToRoleResponse(role, permissionIds);
+        }
+
         public async Task<PaginatedList<RoleResponse>> GetAllRoles(int? page, int? perPage, string sortOrder = null)
         {
-            var query = _uow.RoleRepository.GetAll();
+            var query = _uow.RoleRepository.GetAll().Where(r => r.Name != RoleNames.SuperAdmin);
             var pageIndex = page ?? 1;
             var perPageIndex = perPage ?? 10;
             var paged = await PaginatedList<Role>.CreateAsync(query, pageIndex, perPageIndex);

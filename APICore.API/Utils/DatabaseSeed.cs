@@ -102,7 +102,9 @@ namespace APICore.API.Utils
                 PermissionCodes.OrganizationRead, PermissionCodes.OrganizationCreate, PermissionCodes.OrganizationUpdate, PermissionCodes.OrganizationDelete,
                 PermissionCodes.LocationRead, PermissionCodes.LocationCreate, PermissionCodes.LocationUpdate, PermissionCodes.LocationDelete,
                 PermissionCodes.ContactRead, PermissionCodes.ContactCreate, PermissionCodes.ContactUpdate, PermissionCodes.ContactDelete,
-                PermissionCodes.LeadRead, PermissionCodes.LeadCreate, PermissionCodes.LeadUpdate, PermissionCodes.LeadDelete
+                PermissionCodes.LeadRead, PermissionCodes.LeadCreate, PermissionCodes.LeadUpdate, PermissionCodes.LeadDelete,
+                PermissionCodes.SaleRead, PermissionCodes.SaleCreate, PermissionCodes.SaleUpdate, PermissionCodes.SaleCancel,
+                PermissionCodes.SaleReport, PermissionCodes.SaleReturnCreate
             };
 
             foreach (var code in permissionCodes)

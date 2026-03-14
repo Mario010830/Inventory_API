@@ -14,9 +14,7 @@ namespace APICore.Data
         }
         public bool IgnoreLocationFilter { get; set; }
         public int CurrentLocationId { get; set; } = -1;
-    
         public int CurrentOrganizationId { get; set; } = -1;
-
         public DbSet<User> Users { get; set; }
         public DbSet<Setting> Setting { get; set; }
         public DbSet<Log> Log { get; set; }
@@ -32,6 +30,10 @@ namespace APICore.Data
         public DbSet<Role> Roles { get; set; }
         public DbSet<Permission> Permissions { get; set; }
         public DbSet<RolePermission> RolePermissions { get; set; }
+        public DbSet<SaleOrder> SaleOrders { get; set; }
+        public DbSet<SaleOrderItem> SaleOrderItems { get; set; }
+        public DbSet<SaleReturn> SaleReturns { get; set; }
+        public DbSet<SaleReturnItem> SaleReturnItems { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -58,6 +60,11 @@ namespace APICore.Data
                 .HasConversion<string>();
 
             modelBuilder.Entity<InventoryMovement>()
+                .Property(m => m.Reason)
+                .HasColumnName("Cause")
+                .HasConversion(new Microsoft.EntityFrameworkCore.Storage.ValueConversion.EnumToStringConverter<APICore.Data.Entities.Enums.InventoryMovementReason>());
+
+            modelBuilder.Entity<InventoryMovement>()
                 .HasOne(m => m.Product)
                 .WithMany(p => p.InventoryMovements)
                 .HasForeignKey(m => m.ProductId);
@@ -71,6 +78,92 @@ namespace APICore.Data
                 .HasOne(m => m.Location)
                 .WithMany(l => l.InventoryMovements)
                 .HasForeignKey(m => m.LocationId);
+
+            modelBuilder.Entity<InventoryMovement>()
+                .HasOne(m => m.SaleOrder)
+                .WithMany(s => s.InventoryMovements)
+                .HasForeignKey(m => m.SaleOrderId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // SaleOrder
+            modelBuilder.Entity<SaleOrder>()
+                .Property(s => s.Status)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<SaleOrder>()
+                .HasOne(s => s.Organization)
+                .WithMany()
+                .HasForeignKey(s => s.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleOrder>()
+                .HasOne(s => s.Location)
+                .WithMany()
+                .HasForeignKey(s => s.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleOrder>()
+                .HasOne(s => s.Contact)
+                .WithMany()
+                .HasForeignKey(s => s.ContactId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleOrder>()
+                .HasMany(s => s.Items)
+                .WithOne(i => i.SaleOrder)
+                .HasForeignKey(i => i.SaleOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SaleOrder>()
+                .HasMany(s => s.Returns)
+                .WithOne(r => r.SaleOrder)
+                .HasForeignKey(r => r.SaleOrderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // SaleOrderItem
+            modelBuilder.Entity<SaleOrderItem>()
+                .HasOne(i => i.Product)
+                .WithMany()
+                .HasForeignKey(i => i.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // SaleReturn
+            modelBuilder.Entity<SaleReturn>()
+                .Property(r => r.Status)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<SaleReturn>()
+                .HasOne(r => r.Organization)
+                .WithMany()
+                .HasForeignKey(r => r.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleReturn>()
+                .HasOne(r => r.Location)
+                .WithMany()
+                .HasForeignKey(r => r.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleReturn>()
+                .HasMany(r => r.Items)
+                .WithOne(i => i.SaleReturn)
+                .HasForeignKey(i => i.SaleReturnId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // SaleReturnItem
+            modelBuilder.Entity<SaleReturnItem>()
+                .HasOne(i => i.SaleOrderItem)
+                .WithMany()
+                .HasForeignKey(i => i.SaleOrderItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleReturnItem>()
+                .HasOne(i => i.Product)
+                .WithMany()
+                .HasForeignKey(i => i.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<ProductCategory>()
                 .HasMany(c => c.Products)
@@ -201,6 +294,26 @@ namespace APICore.Data
             modelBuilder.Entity<Log>().HasQueryFilter(l =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && (l.OrganizationId == null || l.OrganizationId == CurrentOrganizationId)));
+
+            modelBuilder.Entity<SaleOrder>().HasQueryFilter(s =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && s.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && s.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<SaleOrderItem>().HasQueryFilter(i =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && i.SaleOrder != null && i.SaleOrder.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && i.SaleOrder != null && i.SaleOrder.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<SaleReturn>().HasQueryFilter(r =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && r.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && r.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<SaleReturnItem>().HasQueryFilter(i =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && i.SaleReturn != null && i.SaleReturn.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && i.SaleReturn != null && i.SaleReturn.OrganizationId == CurrentOrganizationId));
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

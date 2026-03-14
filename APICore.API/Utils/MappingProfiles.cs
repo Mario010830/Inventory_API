@@ -5,6 +5,7 @@ using APICore.Data.Entities.Enums;
 using AutoMapper;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System;
+using System.Linq;
 using System.Net;
 
 namespace APICore.API.Utils
@@ -76,6 +77,7 @@ namespace APICore.API.Utils
 
             CreateMap<InventoryMovement, InventoryMovementResponse>()
                 .ForMember(d => d.Type, opts => opts.MapFrom(source => source.Type.ToString()))
+                .ForMember(d => d.Cause, opts => opts.MapFrom(source => source.Reason.HasValue ? source.Reason.Value.ToString() : null))
                 .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null))
                 .ForMember(d => d.LocationName, opts => opts.MapFrom(s => s.Location != null ? s.Location.Name : null));
 
@@ -97,6 +99,25 @@ namespace APICore.API.Utils
                 .ForMember(d => d.Id, opts => opts.Ignore())
                 .ForMember(d => d.CreatedAt, opts => opts.Ignore())
                 .ForMember(d => d.ModifiedAt, opts => opts.Ignore());
+
+            CreateMap<SaleOrder, SaleOrderResponse>()
+                .ForMember(d => d.Status, opts => opts.MapFrom(s => s.Status.ToString()))
+                .ForMember(d => d.LocationName, opts => opts.MapFrom(s => s.Location != null ? s.Location.Name : null))
+                .ForMember(d => d.ContactName, opts => opts.MapFrom(s => s.Contact != null ? s.Contact.Name : null))
+                .ForMember(d => d.Items, opts => opts.MapFrom(s => s.Items));
+
+            CreateMap<SaleOrderItem, SaleOrderItemResponse>()
+                .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null))
+                .ForMember(d => d.GrossMargin, opts => opts.MapFrom(s => (s.UnitPrice - s.UnitCost) * s.Quantity - s.Discount));
+
+            CreateMap<SaleReturn, SaleReturnResponse>()
+                .ForMember(d => d.Status, opts => opts.MapFrom(s => s.Status.ToString()))
+                .ForMember(d => d.LocationName, opts => opts.MapFrom(s => s.Location != null ? s.Location.Name : null))
+                .ForMember(d => d.SaleOrderFolio, opts => opts.MapFrom(s => s.SaleOrder != null ? s.SaleOrder.Folio : null))
+                .ForMember(d => d.Items, opts => opts.MapFrom(s => s.Items));
+
+            CreateMap<SaleReturnItem, SaleReturnItemResponse>()
+                .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null));
         }
     }
 }

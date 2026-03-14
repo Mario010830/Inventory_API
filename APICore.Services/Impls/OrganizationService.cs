@@ -72,7 +72,7 @@ namespace APICore.Services.Impls
             var pageIndex = page ?? 1;
             var perPageIndex = perPage ?? 10;
             var paged = await PaginatedList<Organization>.CreateAsync(query, pageIndex, perPageIndex);
-            var items = paged.Select(ToResponse).ToList();
+            var items = paged.ConvertAll(o => ToResponse(o));
             return new PaginatedList<OrganizationResponse>(items, paged.TotalItems, pageIndex, perPageIndex);
         }
 

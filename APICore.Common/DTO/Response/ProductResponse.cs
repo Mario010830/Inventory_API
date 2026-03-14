@@ -14,6 +14,7 @@ namespace APICore.Common.DTO.Response
         public decimal Costo { get; set; }
         public string ImagenUrl { get; set; }
         public bool IsAvailable { get; set; }
+        public bool IsForSale { get; set; }
         public decimal TotalStock { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime ModifiedAt { get; set; }

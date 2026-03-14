@@ -57,6 +57,7 @@ namespace APICore.Services.Impls
                 Costo = request.Costo,
                 ImagenUrl = request.ImagenUrl ?? string.Empty,
                 IsAvailable = request.IsAvailable,
+                IsForSale = request.IsForSale,
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
@@ -92,12 +93,22 @@ namespace APICore.Services.Impls
             await _uow.CommitAsync();
         }
 
-        public async Task<PaginatedList<Product>> GetAllProducts(int? page, int? perPage, string sortOrder = null)
+        public async Task<PaginatedList<Product>> GetAllProducts(int? page, int? perPage, string sortOrder = null, bool? onlyForSale = null)
         {
-            var products = _uow.ProductRepository.GetAll();
+            var products = _uow.ProductRepository.GetAllIncluding(p => p.Category);
+            if (onlyForSale == true)
+                products = products.Where(p => p.IsForSale);
             var pageIndex = page ?? 1;
             var perPageIndex = perPage ?? 10;
             return await PaginatedList<Product>.CreateAsync(products, pageIndex, perPageIndex);
+        }
+
+        public async Task<PaginatedList<Product>> GetCatalog(int? page, int? perPage)
+        {
+            var products = _uow.ProductRepository
+                .GetAllIncluding(p => p.Category)
+                .Where(p => p.IsForSale);
+            return await PaginatedList<Product>.CreateAsync(products, page ?? 1, perPage ?? 50);
         }
 
         public async Task<Product> GetProduct(int id)
@@ -151,6 +162,7 @@ namespace APICore.Services.Impls
                 Costo = request.Costo ?? oldProduct.Costo,
                 ImagenUrl = request.ImagenUrl ?? oldProduct.ImagenUrl,
                 IsAvailable = request.IsAvailable ?? oldProduct.IsAvailable,
+                IsForSale = request.IsForSale ?? oldProduct.IsForSale,
             };
 
             await _uow.ProductRepository.UpdateAsync(updatedProduct, oldProduct.Id);

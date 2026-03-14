@@ -12,5 +12,6 @@ namespace APICore.Common.DTO.Request
         public decimal Costo { get; set; }
         public string ImagenUrl { get; set; }
         public bool IsAvailable { get; set; }
+        public bool IsForSale { get; set; }
     }
 }

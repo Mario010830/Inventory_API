@@ -140,6 +140,13 @@
       "es-ES": "El producto no tiene inventario."
     }
   },
+  {
+    "Key": "400033",
+    "LocalizedValue": {
+      "en-US": "Product code is already in use.",
+      "es-ES": "El código del producto ya está en uso."
+    }
+  },
   //Unauthorized
   {
     "Key": "401",
@@ -214,6 +221,13 @@
     }
   },
   {
+    "Key": "404008",
+    "LocalizedValue": {
+      "en-US": "Product not found.",
+      "es-ES": "Producto no encontrado."
+    }
+  },
+  {
     "Key": "404020",
     "LocalizedValue": {
       "en-US": "Role not found.",
@@ -246,6 +260,48 @@
     "LocalizedValue": {
       "en-US": "Lead has already been converted to contact.",
       "es-ES": "El lead ya fue convertido en cliente."
+    }
+  },
+  {
+    "Key": "400040",
+    "LocalizedValue": {
+      "en-US": "Cannot process return: sale order is not confirmed.",
+      "es-ES": "No se puede procesar la devolución: la venta no está confirmada."
+    }
+  },
+  {
+    "Key": "400041",
+    "LocalizedValue": {
+      "en-US": "Sale order is already cancelled.",
+      "es-ES": "La venta ya fue cancelada."
+    }
+  },
+  {
+    "Key": "400042",
+    "LocalizedValue": {
+      "en-US": "Return quantity exceeds the quantity sold for this item.",
+      "es-ES": "La cantidad a devolver supera la cantidad vendida de este artículo."
+    }
+  },
+  {
+    "Key": "400043",
+    "LocalizedValue": {
+      "en-US": "Sale order can only be edited in draft status.",
+      "es-ES": "La venta solo se puede editar en estado borrador."
+    }
+  },
+  {
+    "Key": "404040",
+    "LocalizedValue": {
+      "en-US": "Sale order not found.",
+      "es-ES": "Venta no encontrada."
+    }
+  },
+  {
+    "Key": "404041",
+    "LocalizedValue": {
+      "en-US": "Sale return not found.",
+      "es-ES": "Devolución no encontrada."
     }
   },
   //RequestTimeout

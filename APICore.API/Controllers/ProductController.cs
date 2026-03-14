@@ -71,9 +71,30 @@ namespace APICore.API.Controllers
         [RequirePermission(PermissionCodes.ProductRead)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        public async Task<IActionResult> GetProducts(int? page, int? perPage, string sortOrder = null)
+        public async Task<IActionResult> GetProducts(int? page, int? perPage, string sortOrder = null, bool? onlyForSale = null)
         {
-            var products = await _productService.GetAllProducts(page, perPage, sortOrder);
+            var products = await _productService.GetAllProducts(page, perPage, sortOrder, onlyForSale);
+            var list = _mapper.Map<IEnumerable<ProductResponse>>(products).ToList();
+            if (list.Count > 0)
+            {
+                var stockByProduct = await _productService.GetTotalStockByProductIdsAsync(list.Select(p => p.Id));
+                foreach (var item in list)
+                    item.TotalStock = stockByProduct.TryGetValue(item.Id, out var total) ? total : 0;
+            }
+            return Ok(new ApiOkPaginatedResponse(list, products.GetPaginationData));
+        }
+
+        /// <summary>
+        /// Catálogo de ventas: devuelve solo los productos con IsForSale = true,
+        /// con su stock actual. Accesible con permiso SaleRead (no requiere ProductRead).
+        /// Este es el endpoint que usa el punto de venta en el front.
+        /// </summary>
+        [HttpGet("catalog")]
+        [RequirePermission(PermissionCodes.SaleRead)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetCatalog(int? page, int? perPage)
+        {
+            var products = await _productService.GetCatalog(page, perPage);
             var list = _mapper.Map<IEnumerable<ProductResponse>>(products).ToList();
             if (list.Count > 0)
             {

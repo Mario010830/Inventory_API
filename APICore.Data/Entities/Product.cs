@@ -18,6 +18,9 @@ namespace APICore.Data.Entities
         public string ImagenUrl { get; set; }
         public bool IsAvailable { get; set; }
 
+       
+        public bool IsForSale { get; set; }
+
         public ProductCategory? Category { get; set; }
         public Organization? Organization { get; set; }
 

@@ -39,6 +39,7 @@ namespace APICore.Services.Impls
                 Name = request.Name,
                 Code = request.Code.Trim(),
                 Description = request.Description?.Trim(),
+                WhatsAppContact = request.WhatsAppContact?.Trim(),
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
@@ -53,11 +54,29 @@ namespace APICore.Services.Impls
             if (location == null)
                 throw new LocationNotFoundException(_localizer);
 
-            var hasUsers = await _uow.UserRepository.FindBy(u => u.LocationId == id).AnyAsync();
-            var hasInventories = await _uow.InventoryRepository.FindBy(i => i.LocationId == id).AnyAsync();
-            var hasMovements = await _uow.InventoryMovementRepository.FindBy(m => m.LocationId == id).AnyAsync();
-            if (hasUsers || hasInventories || hasMovements)
+            
+            var hasSales = await _uow.SaleOrderRepository.FindBy(s => s.LocationId == id).AnyAsync();
+            var hasReturns = await _uow.SaleReturnRepository.FindBy(r => r.LocationId == id).AnyAsync();
+            if (hasSales || hasReturns)
                 throw new LocationInUseCannotDeleteBadRequestException(_localizer);
+
+            
+            var usersInLocation = await _uow.UserRepository.FindBy(u => u.LocationId == id).ToListAsync();
+            foreach (var user in usersInLocation)
+            {
+                user.LocationId = null;
+                _uow.UserRepository.Update(user);
+            }
+
+         
+            var movements = await _uow.InventoryMovementRepository.FindBy(m => m.LocationId == id).ToListAsync();
+            foreach (var movement in movements)
+                _uow.InventoryMovementRepository.Delete(movement);
+
+           
+            var inventories = await _uow.InventoryRepository.FindBy(i => i.LocationId == id).ToListAsync();
+            foreach (var inventory in inventories)
+                _uow.InventoryRepository.Delete(inventory);
 
             _uow.LocationRepository.Delete(location);
             await _uow.CommitAsync();
@@ -111,6 +130,8 @@ namespace APICore.Services.Impls
             }
             if (request.Description != null)
                 location.Description = request.Description;
+            if (request.WhatsAppContact != null)
+                location.WhatsAppContact = request.WhatsAppContact.Trim();
 
             location.ModifiedAt = DateTime.UtcNow;
             _uow.LocationRepository.Update(location);
@@ -127,6 +148,7 @@ namespace APICore.Services.Impls
                 Name = location.Name,
                 Code = location.Code,
                 Description = location.Description,
+                WhatsAppContact = location.WhatsAppContact,
                 CreatedAt = location.CreatedAt,
                 ModifiedAt = location.ModifiedAt,
             };

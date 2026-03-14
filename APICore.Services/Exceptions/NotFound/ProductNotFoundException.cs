@@ -6,7 +6,7 @@ namespace APICore.Services.Exceptions
     {
         public ProductNotFoundException(IStringLocalizer<object> localizer) : base()
         {
-            CustomCode = 404002;
+            CustomCode = 404008;
             CustomMessage = localizer.GetString(CustomCode.ToString());
         }
     }
