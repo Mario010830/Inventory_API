@@ -21,22 +21,69 @@ jobs:
       - name: Publish
         run: dotnet publish APICore.API/APICore.API.csproj -c Release -o ./publish
 
+      - name: Decodificar llave SSH
+        run: |
+          echo "${{ secrets.VPS_KEY }}" | base64 -d > /tmp/ssh_key
+          chmod 600 /tmp/ssh_key
+
       - name: Copiar al VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_KEY }}
+          key_path: /tmp/ssh_key
+          port: 22
           source: "./publish/*"
           target: "/var/www/strova/publish"
-          rm: true
+          rm: false
 
-      - name: Reiniciar servicio
+      - name: Crear appsettings y reiniciar servicio
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_KEY }}
+          key_path: /tmp/ssh_key
+          port: 22
           script: |
+            cat > /var/www/strova/publish/appsettings.json << 'EOF'
+            {
+              "Logging": {
+                "LogLevel": {
+                  "Default": "Information",
+                  "Microsoft.AspNetCore": "Warning"
+                }
+              },
+              "AllowedHosts": "*",
+              "Cors": {
+                "AllowedOrigins": [
+                  "https://strova-store.vercel.app",
+                  "https://inventory-admin-five.vercel.app"
+                ]
+              },
+              "ConnectionStrings": {
+                "DefaultConnection": "Host=${{ secrets.DB_HOST }};Database=${{ secrets.DB_NAME }};Username=${{ secrets.DB_USER }};Password=${{ secrets.DB_PASSWORD }}",
+                "ApiConnection": "Host=${{ secrets.DB_HOST }};Database=${{ secrets.DB_NAME }};Username=${{ secrets.DB_USER }};Password=${{ secrets.DB_PASSWORD }}"
+              },
+              "BearerTokens": {
+                "Key": "${{ secrets.JWT_KEY }}",
+                "Issuer": "${{ secrets.JWT_ISSUER }}",
+                "Audience": "${{ secrets.JWT_AUDIENCE }}",
+                "AccessTokenExpirationHours": 7,
+                "RefreshTokenExpirationHours": 60
+              },
+              "Google": {
+                "ClientId": "${{ secrets.GOOGLE_CLIENT_ID }}"
+              },
+              "Sendgrid": {
+                "SendGridKey": "${{ secrets.SENDGRID_KEY }}",
+                "SendGridUser": "${{ secrets.SENDGRID_USER }}",
+                "UseSandbox": "false"
+              },
+              "LocalStorage": {
+                "StorageFolder": "uploads/products",
+                "BaseUrl": "http://162.220.165.172:5000/"
+              }
+            }
+            EOF
             systemctl restart strova-api.service
             systemctl status strova-api.service
