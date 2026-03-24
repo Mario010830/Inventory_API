@@ -41,7 +41,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpGet]
-        [RequirePermission(PermissionCodes.SupplierRead)]
+        [RequirePermission(PermissionCodes.SupplierRead, PermissionCodes.SupplierCreate, PermissionCodes.SupplierUpdate, PermissionCodes.InventoryMovementCreate)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
         public async Task<IActionResult> GetSuppliers(int? page, int? perPage, string sortOrder = null)
@@ -51,8 +51,9 @@ namespace APICore.API.Controllers
             return Ok(new ApiOkPaginatedResponse(list, suppliers.GetPaginationData));
         }
 
+    
         [HttpGet("id")]
-        [RequirePermission(PermissionCodes.SupplierRead)]
+        [RequirePermission(PermissionCodes.SupplierRead, PermissionCodes.SupplierCreate, PermissionCodes.SupplierUpdate, PermissionCodes.InventoryMovementCreate)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> GetSupplierById(int id)

@@ -69,5 +69,20 @@ namespace APICore.Common.Constants
         public const string SaleCancel = "sale.cancel";
         public const string SaleReport = "sale.report";
         public const string SaleReturnCreate = "sale.return.create";
+
+        public const string TagRead = "tag.read";
+        public const string TagCreate = "tag.create";
+        public const string TagUpdate = "tag.update";
+        public const string TagDelete = "tag.delete";
+
+        public const string SubscriptionRead = "subscription.read";
+        public const string SubscriptionManage = "subscription.manage";
+        public const string PlanRead = "plan.read";
+        public const string PlanManage = "plan.manage";
+
+        public const string CurrencyRead = "currency.read";
+        public const string CurrencyCreate = "currency.create";
+        public const string CurrencyUpdate = "currency.update";
+        public const string CurrencyDelete = "currency.delete";
     }
 }

@@ -158,8 +158,15 @@
   {
     "Key": "401001",
     "LocalizedValue": {
-      "en-US": "You don't have permissions to access the resource.",
-      "es-ES": "Usted no tiene permisos para acceder al recurso."
+      "en-US": "You don't have permission to access this resource.",
+      "es-ES": "No tiene permiso para acceder a este recurso."
+    }
+  },
+  {
+    "Key": "401002",
+    "LocalizedValue": {
+      "en-US": "This action requires an organization context. Associate your user with an organization or use an account that belongs to one.",
+      "es-ES": "Esta acción requiere contexto de organización. Asocie su usuario a una organización o use una cuenta que pertenezca a una."
     }
   },
   //Forbidden
@@ -256,6 +263,20 @@
     }
   },
   {
+    "Key": "404042",
+    "LocalizedValue": {
+      "en-US": "Currency not found.",
+      "es-ES": "Moneda no encontrada."
+    }
+  },
+  {
+    "Key": "404043",
+    "LocalizedValue": {
+      "en-US": "Business category not found.",
+      "es-ES": "Categoría de negocio no encontrada."
+    }
+  },
+  {
     "Key": "400032",
     "LocalizedValue": {
       "en-US": "Lead has already been converted to contact.",
@@ -302,6 +323,195 @@
     "LocalizedValue": {
       "en-US": "Sale return not found.",
       "es-ES": "Devolución no encontrada."
+    }
+  },
+  {
+    "Key": "400401",
+    "LocalizedValue": {
+      "en-US": "Billing cycle must be \"monthly\" or \"annual\".",
+      "es-ES": "El ciclo de facturación debe ser \"monthly\" o \"annual\"."
+    }
+  },
+  {
+    "Key": "400402",
+    "LocalizedValue": {
+      "en-US": "The subscription request is not in pending status.",
+      "es-ES": "La solicitud no está en estado pendiente."
+    }
+  },
+  {
+    "Key": "400403",
+    "LocalizedValue": {
+      "en-US": "The plan cannot be deleted because it has associated subscriptions.",
+      "es-ES": "No se puede eliminar el plan porque tiene suscripciones asociadas."
+    }
+  },
+  {
+    "Key": "400404",
+    "LocalizedValue": {
+      "en-US": "You have reached a limit of your current plan.",
+      "es-ES": "Has alcanzado un límite de tu plan actual."
+    }
+  },
+  {
+    "Key": "400405",
+    "LocalizedValue": {
+      "en-US": "The selected plan is not available.",
+      "es-ES": "El plan seleccionado no está disponible."
+    }
+  },
+  {
+    "Key": "400406",
+    "LocalizedValue": {
+      "en-US": "A plan with that name already exists.",
+      "es-ES": "Ya existe un plan con ese nombre."
+    }
+  },
+  {
+    "Key": "400407",
+    "LocalizedValue": {
+      "en-US": "System base plans cannot be deleted.",
+      "es-ES": "No se pueden eliminar los planes base del sistema."
+    }
+  },
+  {
+    "Key": "400408",
+    "LocalizedValue": {
+      "en-US": "The free plan does not require a payment request.",
+      "es-ES": "El plan gratuito no requiere solicitud de pago."
+    }
+  },
+  {
+    "Key": "400450",
+    "LocalizedValue": {
+      "en-US": "A currency with that code already exists.",
+      "es-ES": "Ya existe una moneda con ese código."
+    }
+  },
+  {
+    "Key": "400451",
+    "LocalizedValue": {
+      "en-US": "The base currency (CUP) cannot be modified.",
+      "es-ES": "La moneda base (CUP) no se puede modificar."
+    }
+  },
+  {
+    "Key": "400452",
+    "LocalizedValue": {
+      "en-US": "The base currency (CUP) cannot be deleted.",
+      "es-ES": "La moneda base (CUP) no se puede eliminar."
+    }
+  },
+  {
+    "Key": "400453",
+    "LocalizedValue": {
+      "en-US": "Cannot delete the currency set as the default display currency. Assign another default before deleting.",
+      "es-ES": "No se puede eliminar la moneda configurada como predeterminada para mostrar. Asigne otra moneda predeterminada antes de eliminar."
+    }
+  },
+  {
+    "Key": "400454",
+    "LocalizedValue": {
+      "en-US": "Only an active currency can be set as the default display currency.",
+      "es-ES": "Solo se puede establecer como predeterminada una moneda activa."
+    }
+  },
+  {
+    "Key": "400455",
+    "LocalizedValue": {
+      "en-US": "Currency code is required.",
+      "es-ES": "El código de moneda es obligatorio."
+    }
+  },
+  {
+    "Key": "400456",
+    "LocalizedValue": {
+      "en-US": "Currency name is required.",
+      "es-ES": "El nombre de moneda es obligatorio."
+    }
+  },
+  {
+    "Key": "400457",
+    "LocalizedValue": {
+      "en-US": "The exchange rate must be greater than zero.",
+      "es-ES": "El tipo de cambio debe ser mayor que cero."
+    }
+  },
+  {
+    "Key": "400458",
+    "LocalizedValue": {
+      "en-US": "A business category with that slug already exists.",
+      "es-ES": "Ya existe una categoría de negocio con ese slug."
+    }
+  },
+  {
+    "Key": "400459",
+    "LocalizedValue": {
+      "en-US": "This business category is assigned to one or more locations. Reassign them before deleting.",
+      "es-ES": "Esta categoría está asignada a uno o más locales. Reasígnelos antes de eliminar."
+    }
+  },
+  {
+    "Key": "400460",
+    "LocalizedValue": {
+      "en-US": "The business category name must be at least 2 characters.",
+      "es-ES": "El nombre de la categoría debe tener al menos 2 caracteres."
+    }
+  },
+  {
+    "Key": "400461",
+    "LocalizedValue": {
+      "en-US": "Could not generate a valid slug from the name.",
+      "es-ES": "No se pudo generar un slug válido a partir del nombre."
+    }
+  },
+  {
+    "Key": "400462",
+    "LocalizedValue": {
+      "en-US": "A product cannot have more than 8 images.",
+      "es-ES": "Un producto no puede tener más de 8 imágenes."
+    }
+  },
+  {
+    "Key": "400463",
+    "LocalizedValue": {
+      "en-US": "The image reorder request is invalid: it must include every product image exactly once.",
+      "es-ES": "La solicitud de reordenar imágenes no es válida: debe incluir todas las imágenes del producto exactamente una vez."
+    }
+  },
+  {
+    "Key": "404404",
+    "LocalizedValue": {
+      "en-US": "Product image not found.",
+      "es-ES": "Imagen de producto no encontrada."
+    }
+  },
+  {
+    "Key": "403401",
+    "LocalizedValue": {
+      "en-US": "Your organization is pending activation or suspended. Contact the administrator.",
+      "es-ES": "Tu organización está pendiente de activación o suspendida. Contacta al administrador."
+    }
+  },
+  {
+    "Key": "404401",
+    "LocalizedValue": {
+      "en-US": "Plan not found.",
+      "es-ES": "Plan no encontrado."
+    }
+  },
+  {
+    "Key": "404402",
+    "LocalizedValue": {
+      "en-US": "Subscription not found.",
+      "es-ES": "Suscripción no encontrada."
+    }
+  },
+  {
+    "Key": "404403",
+    "LocalizedValue": {
+      "en-US": "Subscription request not found.",
+      "es-ES": "Solicitud de suscripción no encontrada."
     }
   },
   //RequestTimeout

@@ -1,10 +1,15 @@
-﻿using System.Net;
+using System.Net;
 
 namespace APICore.Services.Exceptions
 {
     public class BaseNotFoundException : CustomBaseException
     {
         public BaseNotFoundException() : base()
+        {
+            HttpCode = (int)HttpStatusCode.NotFound;
+        }
+
+        public BaseNotFoundException(string message) : base(message)
         {
             HttpCode = (int)HttpStatusCode.NotFound;
         }

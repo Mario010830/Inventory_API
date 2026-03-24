@@ -19,6 +19,7 @@ namespace APICore.Data
         public DbSet<Setting> Setting { get; set; }
         public DbSet<Log> Log { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<ProductImage> ProductImages { get; set; }
         public DbSet<Inventory> Inventories { get; set; }
         public DbSet<InventoryMovement> InventoryMovements { get; set; }
         public DbSet<ProductCategory> ProductCategories { get; set; }
@@ -34,6 +35,13 @@ namespace APICore.Data
         public DbSet<SaleOrderItem> SaleOrderItems { get; set; }
         public DbSet<SaleReturn> SaleReturns { get; set; }
         public DbSet<SaleReturnItem> SaleReturnItems { get; set; }
+        public DbSet<Tag> Tags { get; set; }
+        public DbSet<ProductTag> ProductTags { get; set; }
+        public DbSet<Plan> Plans { get; set; }
+        public DbSet<Subscription> Subscriptions { get; set; }
+        public DbSet<SubscriptionRequest> SubscriptionRequests { get; set; }
+        public DbSet<Currency> Currencies { get; set; }
+        public DbSet<BusinessCategory> BusinessCategories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -54,6 +62,18 @@ namespace APICore.Data
                 .HasOne(l => l.Organization)
                 .WithMany(o => o.Locations)
                 .HasForeignKey(l => l.OrganizationId);
+
+            modelBuilder.Entity<Location>()
+                .HasOne(l => l.BusinessCategory)
+                .WithMany(bc => bc.Locations)
+                .HasForeignKey(l => l.BusinessCategoryId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusinessCategory>(e =>
+            {
+                e.HasIndex(b => b.Slug).IsUnique();
+            });
 
             modelBuilder.Entity<InventoryMovement>()
                 .Property(m => m.Type)
@@ -168,13 +188,46 @@ namespace APICore.Data
             modelBuilder.Entity<ProductCategory>()
                 .HasMany(c => c.Products)
                 .WithOne(p => p.Category)
-                .HasForeignKey(p => p.CategoryId);
+                .HasForeignKey(p => p.CategoryId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Tag (global, sin organización)
+            modelBuilder.Entity<Tag>(e =>
+            {
+                e.HasIndex(t => t.Name).IsUnique();
+                e.HasIndex(t => t.Slug).IsUnique();
+            });
+
+            // ProductTag (many-to-many)
+            modelBuilder.Entity<ProductTag>()
+                .HasKey(pt => new { pt.ProductId, pt.TagId });
+            modelBuilder.Entity<ProductTag>()
+                .HasOne(pt => pt.Product)
+                .WithMany(p => p.ProductTags)
+                .HasForeignKey(pt => pt.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ProductTag>()
+                .HasOne(pt => pt.Tag)
+                .WithMany(t => t.ProductTags)
+                .HasForeignKey(pt => pt.TagId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Product>()
                 .HasOne(p => p.Organization)
                 .WithMany(o => o.Products)
                 .HasForeignKey(p => p.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ProductImage>()
+                .HasOne(pi => pi.Product)
+                .WithMany(p => p.ProductImages)
+                .HasForeignKey(pi => pi.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Product>()
+                .Property(p => p.Tipo)
+                .HasConversion<string>()
+                .HasDefaultValue(APICore.Data.Entities.Enums.ProductType.inventariable);
             modelBuilder.Entity<ProductCategory>()
                 .HasOne(c => c.Organization)
                 .WithMany(o => o.ProductCategories)
@@ -273,6 +326,9 @@ namespace APICore.Data
             modelBuilder.Entity<Product>().HasQueryFilter(p =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && p.OrganizationId == CurrentOrganizationId));
+            modelBuilder.Entity<ProductImage>().HasQueryFilter(pi =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && pi.Product != null && pi.Product.OrganizationId == CurrentOrganizationId));
             modelBuilder.Entity<ProductCategory>().HasQueryFilter(c =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && c.OrganizationId == CurrentOrganizationId));
@@ -314,11 +370,55 @@ namespace APICore.Data
                 IgnoreLocationFilter
                 || (CurrentLocationId > 0 && i.SaleReturn != null && i.SaleReturn.LocationId == CurrentLocationId)
                 || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && i.SaleReturn != null && i.SaleReturn.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<Plan>(e =>
+            {
+                e.HasIndex(p => p.Name).IsUnique();
+            });
+
+            modelBuilder.Entity<Currency>()
+                .HasOne(c => c.Organization)
+                .WithMany(o => o.Currencies)
+                .HasForeignKey(c => c.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Currency>(e =>
+            {
+                e.HasIndex(c => new { c.OrganizationId, c.Code }).IsUnique();
+                e.Property(c => c.ExchangeRate).HasPrecision(18, 8);
+            });
+            modelBuilder.Entity<Currency>().HasQueryFilter(c =>
+                CurrentOrganizationId > 0 && c.OrganizationId == CurrentOrganizationId);
+
+            modelBuilder.Entity<Organization>()
+                .HasMany(o => o.Subscriptions)
+                .WithOne(s => s.Organization)
+                .HasForeignKey(s => s.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Organization>()
+                .HasOne(o => o.Subscription)
+                .WithOne()
+                .HasForeignKey<Organization>(o => o.SubscriptionId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SubscriptionRequest>()
+                .HasOne(r => r.Subscription)
+                .WithMany(s => s.Requests)
+                .HasForeignKey(r => r.SubscriptionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Subscription>()
+                .HasOne(s => s.Plan)
+                .WithMany(p => p.Subscriptions)
+                .HasForeignKey(s => s.PlanId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            var currentDate = DateTime.Now;
+            // PostgreSQL (Npgsql): timestamptz exige DateTime con Kind=Utc; DateTime.Now es Local y provoca DbUpdateException.
+            var currentDate = DateTime.UtcNow;
 
             var currentChanges = ChangeTracker.Entries<BaseEntity>();
             var currentChangedList = currentChanges.ToList();

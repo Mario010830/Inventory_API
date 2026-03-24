@@ -2,6 +2,7 @@ using APICore.Common.DTO.Request;
 using APICore.Data.Entities;
 using APICore.Services.Utils;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace APICore.Services
@@ -16,5 +17,15 @@ namespace APICore.Services
         Task<PaginatedList<Product>> GetCatalog(int? page, int? perPage);
         Task<decimal> GetTotalStockForProductAsync(int productId);
         Task<Dictionary<int, decimal>> GetTotalStockByProductIdsAsync(IEnumerable<int> productIds);
+
+        Task<IReadOnlyList<ProductImage>> GetProductImagesOrderedAsync(int productId, bool ignoreQueryFilters = false);
+
+        Task<IReadOnlyList<ProductImage>> UploadProductImagesAsync(int productId, IReadOnlyList<(Stream Stream, string FileName, string ContentType)> files);
+
+        Task SetProductImageAsMainAsync(int productId, int imageId);
+
+        Task ReorderProductImagesAsync(int productId, IReadOnlyList<ReorderProductImageItemRequest> items);
+
+        Task DeleteProductImageAsync(int productId, int imageId);
     }
 }

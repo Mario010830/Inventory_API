@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Moq;
+using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using Wangkanai.Detection.Services;
@@ -33,7 +34,7 @@ namespace APICore.Tests.Integration.Account
         public UserStatusAction()
         {
             ContextOptions = new DbContextOptionsBuilder<CoreDbContext>()
-                                                   .UseInMemoryDatabase("TestStatusDatabase")
+                                                   .UseInMemoryDatabase($"TestStatusDatabase_{Guid.NewGuid()}")
                                                    .Options;
             Config = new Mock<IConfiguration>();
             Config.Setup(setup => setup.GetSection("BearerTokens")["Issuer"]).Returns(@"http://apicore.com");
@@ -64,7 +65,6 @@ namespace APICore.Tests.Integration.Account
                     Phone = "+53 12345678",
                     Password = @"gM3vIavHvte3fimrk2uVIIoAB//f2TmRuTy4IWwNWp0=",
                     Status = StatusEnum.ACTIVE,
-                    Identity = "someRandomIdentityString"
                 }, new User
                 {
                     Id = 5,
@@ -73,7 +73,6 @@ namespace APICore.Tests.Integration.Account
                     Phone = "+53 12345678",
                     Password = @"gM3vIavHvte3fimrk2uVIIoAB//f2TmRuTy4IWwNWp0=",
                     Status = StatusEnum.INACTIVE,
-                    Identity = "someRandomIdentityString"
                 });
 
                 await context.AddRangeAsync(new UserToken
@@ -110,7 +109,7 @@ namespace APICore.Tests.Integration.Account
 
             using var context = new CoreDbContext(ContextOptions);
 
-            var accountService = new AccountService(Config.Object, new UnitOfWork(context), new Mock<IStringLocalizer<IAccountService>>().Object, DetectionService.Object, storageService);
+            var accountService = new AccountService(Config.Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, DetectionService.Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object)
             {
                 ControllerContext = new ControllerContext()
@@ -121,12 +120,12 @@ namespace APICore.Tests.Integration.Account
 
             var fakeChangeAccountStatus = new ChangeAccountStatusRequest
             {
-                Identity = "someRandomIdentityString",
+                Email = "inactive@itguy.com",
                 Active = true
             };
 
             // ACT
-            var taskResult = (OkResult)accountController.ChangeAccountStatus(fakeChangeAccountStatus).Result;
+            var taskResult = (OkResult)accountController.ChangeAccountStatus(fakeChangeAccountStatus).GetAwaiter().GetResult();
 
             // ASSERT
             Assert.Equal(200, taskResult.StatusCode);
@@ -150,7 +149,7 @@ namespace APICore.Tests.Integration.Account
 
             using var context = new CoreDbContext(ContextOptions);
 
-            var accountService = new AccountService(Config.Object, new UnitOfWork(context), new Mock<IStringLocalizer<IAccountService>>().Object, DetectionService.Object, storageService);
+            var accountService = new AccountService(Config.Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, DetectionService.Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object)
             {
                 ControllerContext = new ControllerContext()
@@ -161,7 +160,7 @@ namespace APICore.Tests.Integration.Account
 
             var fakeChangeAccountStatus = new ChangeAccountStatusRequest
             {
-                Identity = "someRandomIdentityString",
+                Email = "inactive@itguy.com",
                 Active = true
             };
 

@@ -119,9 +119,11 @@ namespace APICore.Services.Impls
             var allowNegative = _inventorySettings.AllowNegativeStock;
             var decimals = _inventorySettings.RoundingDecimals;
 
-            // Validar stock antes de confirmar
             foreach (var item in order.Items)
             {
+                if (item.Product?.Tipo == ProductType.elaborado)
+                    continue;
+
                 var inventory = await _uow.InventoryRepository.FirstOrDefaultAsync(
                     i => i.ProductId == item.ProductId && i.LocationId == order.LocationId);
 

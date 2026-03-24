@@ -1,5 +1,7 @@
 #nullable enable
 
+using System.Collections.Generic;
+
 namespace APICore.Common.DTO.Request
 {
     public class UpdateProductRequest
@@ -13,5 +15,7 @@ namespace APICore.Common.DTO.Request
         public string? ImagenUrl { get; set; }
         public bool? IsAvailable { get; set; }
         public bool? IsForSale { get; set; }
+        public string? Tipo { get; set; }
+        public List<int>? TagIds { get; set; }
     }
 }

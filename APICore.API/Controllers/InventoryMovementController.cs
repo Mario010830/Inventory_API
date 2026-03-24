@@ -21,13 +21,43 @@ namespace APICore.API.Controllers
     {
         private readonly IInventoryMovementService _inventoryMovementService;
         private readonly IDashboardStatsService _dashboardStatsService;
+        private readonly ILocationService _locationService;
+        private readonly ICurrentUserContextAccessor _currentUserContextAccessor;
         private readonly IMapper _mapper;
 
-        public InventoryMovementController(IInventoryMovementService inventoryMovementService, IDashboardStatsService dashboardStatsService, IMapper mapper)
+        public InventoryMovementController(
+            IInventoryMovementService inventoryMovementService,
+            IDashboardStatsService dashboardStatsService,
+            ILocationService locationService,
+            ICurrentUserContextAccessor currentUserContextAccessor,
+            IMapper mapper)
         {
             _inventoryMovementService = inventoryMovementService ?? throw new ArgumentNullException(nameof(inventoryMovementService));
             _dashboardStatsService = dashboardStatsService ?? throw new ArgumentNullException(nameof(dashboardStatsService));
+            _locationService = locationService ?? throw new ArgumentNullException(nameof(locationService));
+            _currentUserContextAccessor = currentUserContextAccessor ?? throw new ArgumentNullException(nameof(currentUserContextAccessor));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+        }
+
+        /// <summary>
+        /// Contexto para el formulario de crear movimiento: si el usuario tiene ubicación asignada,
+        /// devuelve esa ubicación y IsLocationLocked = true para mostrarla fija y no editable.
+        /// </summary>
+        [HttpGet("form-context")]
+        [RequirePermission(PermissionCodes.InventoryMovementCreate)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetFormContext()
+        {
+            var ctx = _currentUserContextAccessor.GetCurrent();
+            var response = new InventoryMovementFormContextResponse { IsLocationLocked = false };
+            if (ctx?.LocationId != null && ctx.LocationId.Value > 0)
+            {
+                var location = await _locationService.GetLocation(ctx.LocationId.Value);
+                response.LocationId = location.Id;
+                response.LocationName = location.Name;
+                response.IsLocationLocked = true;
+            }
+            return Ok(new ApiOkResponse(response));
         }
 
         [HttpPost]
@@ -36,7 +66,9 @@ namespace APICore.API.Controllers
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
         public async Task<IActionResult> CreateMovement([FromBody] CreateInventoryMovementRequest request)
         {
-            var result = await _inventoryMovementService.CreateMovement(request, User.GetUserIdFromToken());
+            var userId = User.GetUserIdFromToken();
+            var userLocationId = _currentUserContextAccessor.GetCurrent()?.LocationId;
+            var result = await _inventoryMovementService.CreateMovement(request, userId, userLocationId);
             var response = _mapper.Map<InventoryMovementResponse>(result);
             return Created("", new ApiCreatedResponse(response));
         }

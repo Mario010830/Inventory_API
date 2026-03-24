@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using APICore.Common.DTO.Request;
 using APICore.Data;
@@ -62,7 +62,8 @@ namespace APICore.Test.Unit.SettingServiceTests
             const string notExistingKey = "TestBadKey";
 
             await using var context = new CoreDbContext(ContextOptions);
-            var service = new SettingService(new UnitOfWork(context), _localizerMock);
+            context.IgnoreLocationFilter = true;
+            var service = new SettingService(new UnitOfWork(context), context, _localizerMock);
 
             // Act
             var getSettingAsync = service.GetSettingAsync(notExistingKey);
@@ -82,7 +83,8 @@ namespace APICore.Test.Unit.SettingServiceTests
             const string existingKey = "TestKey1";
 
             await using var context = new CoreDbContext(ContextOptions);
-            var service = new SettingService(new UnitOfWork(context), _localizerMock);
+            context.IgnoreLocationFilter = true;
+            var service = new SettingService(new UnitOfWork(context), context, _localizerMock);
 
             // Act
             var value = await service.GetSettingAsync(existingKey);
@@ -109,7 +111,8 @@ namespace APICore.Test.Unit.SettingServiceTests
             };
 
             await using var context = new CoreDbContext(ContextOptions);
-            var service = new SettingService(new UnitOfWork(context), _localizerMock);
+            context.IgnoreLocationFilter = true;
+            var service = new SettingService(new UnitOfWork(context), context, _localizerMock);
 
             // Act
             await service.SetSettingAsync(request);
@@ -132,7 +135,8 @@ namespace APICore.Test.Unit.SettingServiceTests
             const string newValue = "TestValueUpdate";
 
             await using var context = new CoreDbContext(ContextOptions);
-            var service = new SettingService(new UnitOfWork(context), _localizerMock);
+            context.IgnoreLocationFilter = true;
+            var service = new SettingService(new UnitOfWork(context), context, _localizerMock);
             
             var request = new SettingRequest
             {

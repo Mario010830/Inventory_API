@@ -74,8 +74,7 @@ namespace APICore.API.Controllers
         [ProducesResponseType(typeof(GroupedSettingsResponse), (int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetGrouped()
         {
-            var all = await _settingService.GetAllAsync();
-            var dict = all.ToDictionary(s => s.Key, s => s.Value, StringComparer.OrdinalIgnoreCase);
+            var dict = await _settingService.GetSettingsDictionaryForCurrentOrgAsync();
             var response = new GroupedSettingsResponse
             {
                 Inventory = new InventorySettingsDto
@@ -83,7 +82,8 @@ namespace APICore.API.Controllers
                     RoundingDecimals = ParseInt(dict, SettingKeys.RoundingDecimals, SettingKeys.RoundingDecimalsDefault),
                     PriceRoundingDecimals = ParseInt(dict, SettingKeys.PriceRoundingDecimals, SettingKeys.PriceRoundingDecimalsDefault),
                     AllowNegativeStock = ParseBool(dict, SettingKeys.AllowNegativeStock, SettingKeys.AllowNegativeStockDefault),
-                    DefaultUnitOfMeasure = GetString(dict, SettingKeys.DefaultUnitOfMeasure, SettingKeys.DefaultUnitOfMeasureDefault)
+                    DefaultUnitOfMeasure = GetString(dict, SettingKeys.DefaultUnitOfMeasure, SettingKeys.DefaultUnitOfMeasureDefault),
+                    DefaultMinimumStock = ParseDecimal(dict, SettingKeys.DefaultMinimumStock, SettingKeys.DefaultMinimumStockValue)
                 },
                 Company = new CompanySettingsDto
                 {
@@ -122,6 +122,8 @@ namespace APICore.API.Controllers
                     await _settingService.SetSettingAsync(new SettingRequest { Key = SettingKeys.AllowNegativeStock, Value = request.Inventory.AllowNegativeStock.Value.ToString(CultureInfo.InvariantCulture) });
                 if (request.Inventory.DefaultUnitOfMeasure != null)
                     await _settingService.SetSettingAsync(new SettingRequest { Key = SettingKeys.DefaultUnitOfMeasure, Value = request.Inventory.DefaultUnitOfMeasure });
+                if (request.Inventory.DefaultMinimumStock.HasValue)
+                    await _settingService.SetSettingAsync(new SettingRequest { Key = SettingKeys.DefaultMinimumStock, Value = request.Inventory.DefaultMinimumStock.Value.ToString(CultureInfo.InvariantCulture) });
                 inventoryUpdated = true;
             }
             if (request.Company != null)
@@ -161,6 +163,12 @@ namespace APICore.API.Controllers
         private static string GetString(IReadOnlyDictionary<string, string> dict, string key, string defaultValue)
         {
             return dict.TryGetValue(key, out var v) ? (v ?? defaultValue) : defaultValue;
+        }
+
+        private static decimal ParseDecimal(IReadOnlyDictionary<string, string> dict, string key, decimal defaultValue)
+        {
+            if (!dict.TryGetValue(key, out var v) || string.IsNullOrWhiteSpace(v)) return defaultValue;
+            return decimal.TryParse(v.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : defaultValue;
         }
     }
 }

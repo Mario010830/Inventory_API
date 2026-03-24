@@ -10,9 +10,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
     <PackageReference Include="Askmethat.Aspnet.JsonLocalizer" Version="4.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.3.1" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.9" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.11" />
     <PackageReference Include="rlcx.suid" Version="1.0.1" />
     <PackageReference Include="Sendgrid" Version="9.28.1" />
     <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
@@ -21,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="9.0.11" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\APICore.Common\APICore.Common.csproj" />

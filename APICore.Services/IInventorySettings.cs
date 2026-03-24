@@ -10,6 +10,7 @@ namespace APICore.Services
         int PriceRoundingDecimals { get; }
         bool AllowNegativeStock { get; }
         string DefaultUnitOfMeasure { get; }
+        decimal DefaultMinimumStock { get; }
 
         /// <summary>
         /// Invalida la caché para que la próxima lectura recargue desde BD (llamar tras actualizar settings de inventario).

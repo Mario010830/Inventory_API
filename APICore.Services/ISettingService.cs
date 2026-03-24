@@ -21,5 +21,7 @@ namespace APICore.Services
         /// Returns all settings as key-value pairs for the grouped configuration endpoint.
         /// </summary>
         Task<IReadOnlyList<Setting>> GetAllAsync();
+
+        Task<IReadOnlyDictionary<string, string>> GetSettingsDictionaryForCurrentOrgAsync();
     }
 }

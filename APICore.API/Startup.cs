@@ -44,7 +44,7 @@ namespace APICore.API
         public void ConfigureServices(IServiceCollection services)
         {
             services.ConfigureI18N();
-            services.ConfigureCors();
+            services.ConfigureCors(Configuration);
             services.AddMvc(config =>
             {
                 config.Filters.Add(typeof(ApiValidationFilterAttribute));
@@ -54,7 +54,8 @@ namespace APICore.API
             services.ConfigureHsts();
 
             services.ConfigureDbContext(Configuration);
-            services.ConfigureSwagger();
+            // Swagger desactivado (descomentar servicios.ConfigureSwagger() y el bloque UseSwagger* en Configure).
+            // services.ConfigureSwagger();
             services.ConfigureTokenAuth(Configuration);
             services.ConfigurePerformance();
 
@@ -92,6 +93,12 @@ namespace APICore.API
             services.AddTransient<ISaleOrderService, SaleOrderService>();
             services.AddTransient<ISaleReturnService, SaleReturnService>();
             services.AddTransient<IPublicCatalogService, PublicCatalogService>();
+            services.AddTransient<ITagService, TagService>();
+            services.AddTransient<ISubscriptionService, SubscriptionService>();
+            services.AddTransient<IPlanService, PlanService>();
+            services.AddTransient<ISubscriptionQuotaService, SubscriptionQuotaService>();
+            services.AddTransient<ICurrencyService, CurrencyService>();
+            services.AddTransient<IBusinessCategoryService, BusinessCategoryService>();
 
             services.AddScoped<ICurrentUserContextAccessor, CurrentUserContextAccessor>();
             services.AddScoped<ICurrentUserContextProvider, CurrentUserContextProvider>();
@@ -112,11 +119,11 @@ namespace APICore.API
                 app.UseHsts();
             }
 
-            app.UseSwagger();
-            app.UseSwaggerUI(c =>
-            {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "API Core V1");
-            });
+            // app.UseSwagger();
+            // app.UseSwaggerUI(c =>
+            // {
+            //     c.SwaggerEndpoint("/swagger/v1/swagger.json", "API Core V1");
+            // });
 
             #region Localization
 
@@ -165,7 +172,7 @@ namespace APICore.API
                 endpoints.MapControllers();
             });
 
-          // DatabaseSeed.SeedDatabaseAsync(services).Wait();
+          //DatabaseSeed.SeedDatabaseAsync(services).Wait();
         }
     }
 }

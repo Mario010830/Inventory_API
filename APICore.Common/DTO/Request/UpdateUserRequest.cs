@@ -14,7 +14,9 @@ namespace APICore.Common.DTO.Request
         public string? Password { get; set; }
         public string? Email { get; set; }
         public string? Phone { get; set; }
-        
+
+        public DateTime? BirthDate { get; set; }
+
         public int? LocationId { get; set; }
         public int? OrganizationId { get; set; }
 

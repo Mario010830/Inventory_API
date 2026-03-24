@@ -40,8 +40,9 @@ namespace APICore.API.Controllers
             return Created("", new ApiCreatedResponse(response));
         }
 
+      
         [HttpGet]
-        [RequirePermission(PermissionCodes.ProductCategoryRead)]
+        [RequirePermission(PermissionCodes.ProductCategoryRead, PermissionCodes.ProductCreate, PermissionCodes.ProductUpdate, PermissionCodes.ProductDelete)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
         public async Task<IActionResult> GetCategories(int? page, int? perPage, string sortOrder = null)
@@ -51,8 +52,9 @@ namespace APICore.API.Controllers
             return Ok(new ApiOkPaginatedResponse(list, categories.GetPaginationData));
         }
 
+       
         [HttpGet("id")]
-        [RequirePermission(PermissionCodes.ProductCategoryRead)]
+        [RequirePermission(PermissionCodes.ProductCategoryRead, PermissionCodes.ProductCreate, PermissionCodes.ProductUpdate, PermissionCodes.ProductDelete)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> GetCategoryById(int id)

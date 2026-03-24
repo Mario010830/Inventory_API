@@ -33,16 +33,62 @@ namespace APICore.API.Controllers
         }
 
         /// <summary>
+        /// Lista etiquetas que tienen al menos un producto público asignado. Para filtros en el catálogo.
+        /// No requiere autenticación.
+        /// </summary>
+        [HttpGet("tags")]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetPublicTags()
+        {
+            var tags = await _publicCatalogService.GetPublicTagsAsync();
+            return Ok(new ApiOkResponse(tags));
+        }
+
+        /// <summary>
         /// Catálogo de productos disponibles para venta en una ubicación específica.
-        /// Incluye stock actual en esa ubicación. No expone costos.
+        /// Incluye stock actual en esa ubicación, imagen principal (imagenUrl) y lista images con todas las URLs ordenadas.
+        /// No expone costos.
         /// No requiere autenticación.
         /// </summary>
         [HttpGet("catalog")]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetCatalog(int locationId)
+        public async Task<IActionResult> GetCatalog(int? locationId, bool? all, int? page, int? pageSize)
         {
-            var catalog = await _publicCatalogService.GetCatalogByLocationAsync(locationId);
-            return Ok(new ApiOkResponse(catalog));
+            // Si viene locationId → flujo actual (sin cambios).
+            if (locationId.HasValue)
+            {
+                var catalog = await _publicCatalogService.GetCatalogByLocationAsync(locationId.Value);
+                return Ok(new ApiOkResponse(catalog));
+            }
+
+            // Si viene all=true → nuevo flujo paginado.
+            if (all == true)
+            {
+                var effectivePage = page.GetValueOrDefault(1);
+                var effectivePageSize = pageSize.GetValueOrDefault(50);
+
+                if (effectivePageSize > 100)
+                {
+                    effectivePageSize = 100;
+                }
+
+                var result = await _publicCatalogService.GetCatalogAllAsync(effectivePage, effectivePageSize);
+
+                return Ok(new
+                {
+                    data = result.Items,
+                    pagination = new
+                    {
+                        page = result.Page,
+                        pageSize = result.PageSize,
+                        total = result.Total,
+                        totalPages = result.TotalPages
+                    }
+                });
+            }
+
+            // Si no viene ni locationId ni all=true → 400 Bad Request.
+            return BadRequest(new ApiBadRequestResponse("Se requiere locationId o all=true"));
         }
     }
 }

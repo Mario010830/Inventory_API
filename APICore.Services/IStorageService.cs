@@ -21,5 +21,15 @@ namespace APICore.Services
         /// Elimina una imagen del almacenamiento por su clave/URL.
         /// </summary>
         Task DeleteProductImageAsync(string objectKeyOrUrl);
+
+        /// <summary>
+        /// Sube una imagen de ubicación y devuelve la URL pública.
+        /// </summary>
+        Task<string> UploadLocationImageAsync(Stream fileStream, string fileName, string contentType);
+
+        /// <summary>
+        /// Elimina una imagen de ubicación por su URL.
+        /// </summary>
+        Task DeleteLocationImageAsync(string objectKeyOrUrl);
     }
 }

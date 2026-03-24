@@ -1,9 +1,6 @@
 namespace APICore.Common.Constants
 {
-    /// <summary>
-    /// Claves y valores por defecto para la tabla Setting.
-    /// Usado por InventorySettingsProvider y por el endpoint de configuración agrupada.
-    /// </summary>
+
     public static class SettingKeys
     {
         public const string InventoryPrefix = "Inventory.";
@@ -20,6 +17,10 @@ namespace APICore.Common.Constants
         public const string DefaultUnitOfMeasure = "Inventory.DefaultUnitOfMeasure";
         public const string DefaultUnitOfMeasureDefault = "unit";
 
+    
+        public const string DefaultMinimumStock = "Inventory.DefaultMinimumStock";
+        public const decimal DefaultMinimumStockValue = 0;
+
         public const string CompanyName = "Company.Name";
         public const string CompanyNameDefault = "";
 
@@ -31,5 +32,8 @@ namespace APICore.Common.Constants
 
         public const string NotificationsLowStockRecipients = "Notifications.LowStockRecipients";
         public const string NotificationsLowStockRecipientsDefault = "";
+
+        /// <summary>Id de moneda (entidad Currency) usado como moneda de visualización por defecto en la app.</summary>
+        public const string DefaultDisplayCurrencyId = "Currency.DefaultDisplayCurrencyId";
     }
 }

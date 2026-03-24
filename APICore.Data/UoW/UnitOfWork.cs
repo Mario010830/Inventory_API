@@ -32,6 +32,12 @@ namespace APICore.Data.UoW
             SaleOrderItemRepository ??= new GenericRepository<SaleOrderItem>(_context);
             SaleReturnRepository ??= new GenericRepository<SaleReturn>(_context);
             SaleReturnItemRepository ??= new GenericRepository<SaleReturnItem>(_context);
+            TagRepository ??= new GenericRepository<Tag>(_context);
+            PlanRepository ??= new GenericRepository<Plan>(_context);
+            SubscriptionRepository ??= new GenericRepository<Subscription>(_context);
+            SubscriptionRequestRepository ??= new GenericRepository<SubscriptionRequest>(_context);
+            CurrencyRepository ??= new GenericRepository<Currency>(_context);
+            BusinessCategoryRepository ??= new GenericRepository<BusinessCategory>(_context);
         }
 
         public IGenericRepository<User> UserRepository { get; set; }
@@ -54,6 +60,12 @@ namespace APICore.Data.UoW
         public IGenericRepository<SaleOrderItem> SaleOrderItemRepository { get; set; }
         public IGenericRepository<SaleReturn> SaleReturnRepository { get; set; }
         public IGenericRepository<SaleReturnItem> SaleReturnItemRepository { get; set; }
+        public IGenericRepository<Tag> TagRepository { get; set; }
+        public IGenericRepository<Plan> PlanRepository { get; set; }
+        public IGenericRepository<Subscription> SubscriptionRepository { get; set; }
+        public IGenericRepository<SubscriptionRequest> SubscriptionRequestRepository { get; set; }
+        public IGenericRepository<Currency> CurrencyRepository { get; set; }
+        public IGenericRepository<BusinessCategory> BusinessCategoryRepository { get; set; }
 
         public async Task<int> CommitAsync()
         {

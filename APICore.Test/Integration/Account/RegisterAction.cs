@@ -29,7 +29,7 @@ namespace APICore.Tests.Integration.Account
         public RegisterAction()
         {
             ContextOptions = new DbContextOptionsBuilder<CoreDbContext>()
-                                       .UseInMemoryDatabase("TestRegisterDatabase")
+                                       .UseInMemoryDatabase($"TestRegisterDatabase_{Guid.NewGuid()}")
                                        .Options;
             storageService = new Mock<IStorageService>().Object;
 
@@ -93,14 +93,14 @@ namespace APICore.Tests.Integration.Account
                 Email = @"carlos@itguy.com",
                 FullName = "Carlos Perez",
                 Phone = "+53 12345678",
-                Birthday = DateTime.Now,
+                Birthday = DateTime.UtcNow,
                 Password = @"S3cretP@$$",
                 ConfirmationPassword = @"S3cretP@$$",
                 OrganizationId = 1
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, storageService);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -119,14 +119,14 @@ namespace APICore.Tests.Integration.Account
                 Email = "",
                 FullName = "Pepe Perez",
                 Phone = "+53 12345678",
-                Birthday = DateTime.Now,
+                Birthday = DateTime.UtcNow,
                 Password = @"S3cretP@$$",
                 ConfirmationPassword = @"S3cretP@$$",
                 OrganizationId = 1
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, storageService);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -148,7 +148,7 @@ namespace APICore.Tests.Integration.Account
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, storageService);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -168,14 +168,14 @@ namespace APICore.Tests.Integration.Account
                 Email = @"pepe2@itguy.com",
                 FullName = "Pepe Perez",
                 Phone = "+53 12345678",
-                Birthday = DateTime.Now,
+                Birthday = DateTime.UtcNow,
                 Password = "",
                 ConfirmationPassword = @"S3cretP@$$",
                 OrganizationId = 1
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, storageService);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -195,14 +195,14 @@ namespace APICore.Tests.Integration.Account
                 Email = "pepe2@itguy.com",
                 FullName = "Pepe Perez",
                 Phone = "+53 12345678",
-                Birthday = DateTime.Now,
+                Birthday = DateTime.UtcNow,
                 Password = "S3cr",
                 ConfirmationPassword = @"S3cretP@$$",
                 OrganizationId = 1
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, storageService);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -222,14 +222,14 @@ namespace APICore.Tests.Integration.Account
                 Email = "pepe2@itguy.com",
                 FullName = "Pepe Perez",
                 Phone = "+53 12345678",
-                Birthday = DateTime.Now,
+                Birthday = DateTime.UtcNow,
                 Password = @"Z3cretP@$$",
                 ConfirmationPassword = @"S3cretP@$$",
                 OrganizationId = 1
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, storageService);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT

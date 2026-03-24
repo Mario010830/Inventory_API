@@ -1,0 +1,70 @@
+---
+description: APICore — estructura, arquitectura, flujos, convenciones e idioma del proyecto
+alwaysApply: true
+---
+
+# APICore — Guía del proyecto
+
+## Stack y solución
+
+- **.NET 9** (C#), **ASP.NET Core** con `Startup` + `Program`.
+- **PostgreSQL** vía **Npgsql** + **Entity Framework Core** (`CoreDbContext`).
+- Solución `APICore.sln` con proyectos:
+  - **APICore.API** — host HTTP, controladores, middleware, Swagger, AutoMapper (`MappingProfiles`), extensiones DI (`ServicesExtensions`).
+  - **APICore.Common** — DTOs (`DTO/Request`, `DTO/Response`), constantes (`Constants`), helpers compartidos.
+  - **APICore.Data** — entidades EF, `CoreDbContext`, migraciones, repositorio genérico, `UnitOfWork`.
+  - **APICore.Services** — interfaces e implementaciones de negocio, excepciones de dominio (`Exceptions/**`).
+  - **APICore.Test** — pruebas de integración.
+
+## Arquitectura en capas
+
+1. **API (Controllers)** — recibe HTTP, autorización, mapeo a respuestas (`ApiOkResponse`, paginación, etc.). No debe contener lógica de negocio pesada.
+2. **Services** — reglas de negocio, orquestación, uso de `IUnitOfWork` / `CoreDbContext` según el caso.
+3. **Data** — persistencia: entidades, consultas EF, filtros globales de multitenancy en `CoreDbContext`.
+
+**Patrones:** Repository + Unit of Work; **AutoMapper** para entidad ↔ DTO en la capa API.
+
+## Multitenancy y filtros globales
+
+- `CoreDbContext` define **Query Filters** por `CurrentOrganizationId`, `CurrentLocationId` y `IgnoreLocationFilter`.
+- **`CurrentUserContextMiddleware`** (después de `UseAuthentication`) carga el usuario, pone contexto en `HttpContext.Items` y asigna `dbContext.CurrentOrganizationId`, `CurrentLocationId`, `IgnoreLocationFilter` (superadmin ve todo).
+- Usuarios **no autenticados**: `CurrentOrganizationId = -1` → los filtros ocultan datos de tenant.
+- Endpoints **públicos / anónimos** que deben ver datos cross-tenant: usar **`.IgnoreQueryFilters()`** en las consultas (ej. catálogo público en `PublicCatalogService`).
+
+## Flujo típico de petición
+
+`Request` → CORS → Swagger → localización → estáticos → `UseRouting` → **JWT** (`ConfigureTokenAuth`) → **`CurrentUserContextMiddleware`** → `UseAuthorization` → **`ErrorWrappingMiddleware`** → controladores.
+
+- Autenticación: **JWT Bearer**; claves en configuración `BearerTokens` (`Key`, `Issuer`, `Audience`, expiraciones).
+- Autorización fina: atributo **`[RequirePermission(PermissionCodes....)]`** y servicio `IAuthorizationDomainService`.
+
+## Convenciones de código
+
+- **DTOs:** prefijos `Create*`, `Update*`, `*Response` en `APICore.Common`.
+- **Permisos:** `PermissionCodes` en Common; roles/nombres en `RoleNames` / constantes similares.
+- **Excepciones de negocio:** clases en `APICore.Services/Exceptions` (BadRequest, NotFound, Forbidden, etc.) consumidas por middleware de errores.
+- **Entidades:** herencia de `BaseEntity` donde aplique; enums almacenados como string en varios casos (`Product.Tipo`, etc.).
+- **Productos:** `ProductType` (`inventariable`, `elaborado`); reglas de inventario/venta pueden diferir por tipo (revisar servicios de movimientos y ventas).
+- **Fechas:** `SaveChangesAsync` en `CoreDbContext` normaliza timestamps; preferir **`DateTime.UtcNow`** en lógica nueva; existe switch Npgsql legacy en `Program.cs` por compatibilidad.
+
+## API pública
+
+- Controlador **`PublicController`** (`[AllowAnonymous]`, ruta `api/public`): ubicaciones, etiquetas, catálogo por `locationId` o paginado `all=true`.
+- No exponer datos internos (costos) en DTOs públicos (`PublicCatalogItemResponse`, etc.).
+
+## Localización e idioma
+
+- **i18n** basado en JSON (`APICore.API/i18n/`, fábrica `JsonStringLocalizer`).
+- Culturas soportadas: **es-ES** (por defecto), **en-US**.
+- Mensajes orientados al usuario y documentación de API suelen estar en **español**; nombres de código (tipos, APIs públicas en inglés) siguen convenciones .NET habituales.
+
+## Configuración
+
+- `appsettings.json` / variables de entorno (ej. `ConnectionStrings:ApiConnection`, `BearerTokens__*`, `PORT`).
+- Archivos estáticos y subidas bajo **`wwwroot`** cuando aplique (`LocalStorageService`).
+
+## Al trabajar en este repo
+
+- Registrar nuevos servicios en **`Startup.ConfigureServices`**.
+- Nuevas entidades: actualizar **`CoreDbContext`**, migraciones en **`APICore.Data/Migrations`**.
+- Mantener coherencia con **filtros de tenant**: si el endpoint es para usuario autenticado de org, no uses `IgnoreQueryFilters` salvo motivo documentado.

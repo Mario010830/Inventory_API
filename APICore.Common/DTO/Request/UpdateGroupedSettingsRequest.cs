@@ -16,6 +16,7 @@ namespace APICore.Common.DTO.Request
         public int? PriceRoundingDecimals { get; set; }
         public bool? AllowNegativeStock { get; set; }
         public string? DefaultUnitOfMeasure { get; set; }
+        public decimal? DefaultMinimumStock { get; set; }
     }
 
     public class CompanySettingsUpdateDto

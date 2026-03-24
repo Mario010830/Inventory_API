@@ -1,6 +1,7 @@
 using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
 using APICore.Data.Entities;
+using APICore.Services;
 using APICore.Data.UoW;
 using APICore.Services.Exceptions;
 using APICore.Services.Utils;
@@ -15,11 +16,13 @@ namespace APICore.Services.Impls
     public class OrganizationService : IOrganizationService
     {
         private readonly IUnitOfWork _uow;
+        private readonly ICurrencyService _currencyService;
         private readonly IStringLocalizer<IOrganizationService> _localizer;
 
-        public OrganizationService(IUnitOfWork uow, IStringLocalizer<IOrganizationService> localizer)
+        public OrganizationService(IUnitOfWork uow, ICurrencyService currencyService, IStringLocalizer<IOrganizationService> localizer)
         {
             _uow = uow;
+            _currencyService = currencyService;
             _localizer = localizer;
         }
 
@@ -39,6 +42,9 @@ namespace APICore.Services.Impls
             };
             await _uow.OrganizationRepository.AddAsync(organization);
             await _uow.CommitAsync();
+
+            await _currencyService.EnsureBaseCurrencyForOrganizationAsync(organization.Id);
+
             return ToResponse(organization);
         }
 
@@ -60,6 +66,7 @@ namespace APICore.Services.Impls
         {
             var organization = await _uow.OrganizationRepository.GetAll()
                 .Include(o => o.Locations)
+                .ThenInclude(l => l.BusinessCategory)
                 .FirstOrDefaultAsync(o => o.Id == id);
             if (organization == null)
                 throw new OrganizationNotFoundException(_localizer);
@@ -123,6 +130,10 @@ namespace APICore.Services.Impls
                         Name = l.Name,
                         Code = l.Code,
                         Description = l.Description,
+                        BusinessCategoryId = l.BusinessCategoryId,
+                        BusinessCategory = l.BusinessCategory != null
+                            ? new BusinessCategorySummaryDto { Name = l.BusinessCategory.Name, Icon = l.BusinessCategory.Icon }
+                            : null,
                         CreatedAt = l.CreatedAt,
                         ModifiedAt = l.ModifiedAt,
                     })

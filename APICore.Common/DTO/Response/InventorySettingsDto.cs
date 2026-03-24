@@ -6,5 +6,6 @@ namespace APICore.Common.DTO.Response
         public int PriceRoundingDecimals { get; set; }
         public bool AllowNegativeStock { get; set; }
         public string DefaultUnitOfMeasure { get; set; } = "unit";
+        public decimal DefaultMinimumStock { get; set; }
     }
 }

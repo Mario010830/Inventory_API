@@ -26,6 +26,12 @@ namespace APICore.Data.UoW
         IGenericRepository<SaleOrderItem> SaleOrderItemRepository { get; set; }
         IGenericRepository<SaleReturn> SaleReturnRepository { get; set; }
         IGenericRepository<SaleReturnItem> SaleReturnItemRepository { get; set; }
+        IGenericRepository<Tag> TagRepository { get; set; }
+        IGenericRepository<Plan> PlanRepository { get; set; }
+        IGenericRepository<Subscription> SubscriptionRepository { get; set; }
+        IGenericRepository<SubscriptionRequest> SubscriptionRequestRepository { get; set; }
+        IGenericRepository<Currency> CurrencyRepository { get; set; }
+        IGenericRepository<BusinessCategory> BusinessCategoryRepository { get; set; }
         Task<int> CommitAsync();
     }
 }

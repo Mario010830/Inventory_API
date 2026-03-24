@@ -21,12 +21,14 @@ namespace APICore.Services.Impls
         private readonly IUnitOfWork _uow;
         private readonly IStringLocalizer<IUserService> _localizer;
         private readonly ICurrentUserContextAccessor _currentUserContextAccessor;
+        private readonly ISubscriptionQuotaService _subscriptionQuotaService;
 
-        public UserService(IUnitOfWork uow, IStringLocalizer<IUserService> localizer, ICurrentUserContextAccessor currentUserContextAccessor)
+        public UserService(IUnitOfWork uow, IStringLocalizer<IUserService> localizer, ICurrentUserContextAccessor currentUserContextAccessor, ISubscriptionQuotaService subscriptionQuotaService)
         {
             _uow = uow;
             _localizer = localizer;
             _currentUserContextAccessor = currentUserContextAccessor ?? throw new ArgumentNullException(nameof(currentUserContextAccessor));
+            _subscriptionQuotaService = subscriptionQuotaService ?? throw new ArgumentNullException(nameof(subscriptionQuotaService));
         }
 
         public async Task<User> CreateUser(CreateUserRequest user)
@@ -60,6 +62,8 @@ namespace APICore.Services.Impls
                     throw new LocationNotInOrganizationBadRequestException(_localizer);
                 }
             }
+
+            await _subscriptionQuotaService.EnsureCanAddUserAsync(organizationIdToAssign.Value);
 
             var hashed_password = GetSha256Hash(user.Password);
 
@@ -141,6 +145,21 @@ namespace APICore.Services.Impls
 
             var new_password = user.Password != null ? GetSha256Hash(user.Password) : old_user.Password;
 
+     
+            var newRoleId = old_user.RoleId;
+            if (user.RoleId.HasValue)
+            {
+                if (user.RoleId.Value == 0)
+                    newRoleId = null;
+                else
+                {
+                    var roleExists = await _uow.RoleRepository.FirstOrDefaultAsync(r => r.Id == user.RoleId.Value);
+                    if (roleExists == null)
+                        throw new RoleNotFoundException(_localizer);
+                    newRoleId = user.RoleId.Value;
+                }
+            }
+
             var new_user = new User
             {
                 Id = old_user.Id,
@@ -150,11 +169,11 @@ namespace APICore.Services.Impls
                 Email = user.Email ?? old_user.Email,
                 Password = new_password,
                 Phone = user.Phone ?? old_user.Phone,
-                BirthDate = old_user.BirthDate,
+                BirthDate = user.BirthDate ?? old_user.BirthDate,
                 Status = old_user.Status,
                 LocationId = user.LocationId ?? old_user.LocationId,
                 OrganizationId = user.OrganizationId ?? old_user.OrganizationId,
-                RoleId = user.RoleId ?? old_user.RoleId,
+                RoleId = newRoleId,
             };
 
             await _uow.UserRepository.UpdateAsync(new_user, old_user.Id);

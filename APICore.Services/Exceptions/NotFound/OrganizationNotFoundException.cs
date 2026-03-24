@@ -9,5 +9,11 @@ namespace APICore.Services.Exceptions
             CustomCode = 404022;
             CustomMessage = localizer.GetString(CustomCode.ToString());
         }
+
+        public OrganizationNotFoundException() : base()
+        {
+            CustomCode = 404022;
+            CustomMessage = "Organización no encontrada.";
+        }
     }
 }

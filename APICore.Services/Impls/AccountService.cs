@@ -1,4 +1,6 @@
 using APICore.Common.Constants;
+using APICore.Services;
+using APICore.Services.Exceptions;
 using APICore.Common.DTO.Request;
 using APICore.Data;
 using APICore.Data.Entities;
@@ -37,17 +39,23 @@ namespace APICore.Services.Impls
         private readonly CoreDbContext _context;
         private readonly IStringLocalizer<IAccountService> _localizer;
         private readonly IDetectionService _detectionService;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly ICurrencyService _currencyService;
 
         public AccountService(IConfiguration configuration, IUnitOfWork uow,
             CoreDbContext context,
             IStringLocalizer<IAccountService> localizer,
-            IDetectionService detectionService)
+            IDetectionService detectionService,
+            ISubscriptionService subscriptionService,
+            ICurrencyService currencyService)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _uow = uow ?? throw new ArgumentNullException(nameof(uow));
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
             _detectionService = detectionService ?? throw new ArgumentNullException(nameof(detectionService));
+            _subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
+            _currencyService = currencyService ?? throw new ArgumentNullException(nameof(currencyService));
         }
 
        
@@ -86,6 +94,14 @@ namespace APICore.Services.Impls
             if (user.Status != StatusEnum.ACTIVE)
             {
                 throw new AccountInactiveForbiddenException(_localizer);
+            }
+
+            if (user.OrganizationId.HasValue)
+            {
+                var org = await _context.Organizations.IgnoreQueryFilters().AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.Id == user.OrganizationId.Value);
+                if (org != null && !org.IsActive)
+                    throw new OrganizationSuspendedForbiddenException();
             }
 
             var dd = GetDeviceDetectorConfigured();
@@ -185,6 +201,14 @@ namespace APICore.Services.Impls
 
             if (user.Status != StatusEnum.ACTIVE)
                 throw new AccountInactiveForbiddenException(_localizer);
+
+            if (user.OrganizationId.HasValue)
+            {
+                var org = await _context.Organizations.IgnoreQueryFilters().AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.Id == user.OrganizationId.Value);
+                if (org != null && !org.IsActive)
+                    throw new OrganizationSuspendedForbiddenException();
+            }
 
             var dd = GetDeviceDetectorConfigured();
             var clientInfo = dd.GetClient();
@@ -409,6 +433,15 @@ namespace APICore.Services.Impls
             if (request.Password != request.ConfirmationPassword)
                 throw new PasswordsDoesntMatchBadRequestException(_localizer);
 
+            EnsureRegistrationBillingCycle(request.BillingCycle);
+
+            var plan = await _context.Plans.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.Id == request.PlanId);
+            if (plan == null)
+                throw new PlanNotFoundException();
+            if (!plan.IsActive)
+                throw new InactivePlanBadRequestException();
+
             var adminRole = await GetRoleIgnoringFiltersAsync(RoleNames.Admin);
             var rolesRepository = await _uow.RoleRepository.GetAllAsync();
 
@@ -420,6 +453,7 @@ namespace APICore.Services.Impls
                 Name = request.OrganizationName,
                 Code = request.OrganizationCode.Trim(),
                 Description = request.OrganizationDescription?.Trim(),
+                IsActive = false,
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
@@ -443,6 +477,22 @@ namespace APICore.Services.Impls
             await _uow.UserRepository.AddAsync(user);
 
             await _uow.CommitAsync();
+
+            await _currencyService.EnsureBaseCurrencyForOrganizationAsync(organization.Id);
+
+            if (string.Equals(plan.Name, PlanNames.Free, StringComparison.OrdinalIgnoreCase))
+                await _subscriptionService.CreateFreeSubscriptionAsync(organization.Id);
+            else
+                await _subscriptionService.CreatePaidSubscriptionRequestAsync(organization.Id, plan.Id, request.BillingCycle);
+        }
+
+        private static void EnsureRegistrationBillingCycle(string cycle)
+        {
+            if (string.IsNullOrWhiteSpace(cycle))
+                throw new InvalidBillingCycleBadRequestException();
+            var c = cycle.Trim().ToLowerInvariant();
+            if (c != BillingCycle.Monthly && c != BillingCycle.Annual)
+                throw new InvalidBillingCycleBadRequestException();
         }
 
         private bool CheckStringWithoutSpecialChars(string word)

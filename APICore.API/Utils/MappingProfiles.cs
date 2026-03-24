@@ -1,10 +1,13 @@
 using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
+using APICore.Common.Helpers;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
+using APICore.Services.Utils;
 using AutoMapper;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 
@@ -14,7 +17,8 @@ namespace APICore.API.Utils
     {
         public MappingProfiles()
         {
-            CreateMap<Location, LocationResponse>();
+            CreateMap<Location, LocationResponse>()
+                .ForMember(d => d.BusinessCategory, opts => opts.Ignore());
             CreateMap<Organization, OrganizationResponse>();
             CreateMap<User, UserResponse>()
                 .ForMember(d => d.StatusId, opts => opts.MapFrom(source => (int)source.Status))
@@ -54,8 +58,17 @@ namespace APICore.API.Utils
                 .ForMember(d => d.CreatedAt, opts => opts.Ignore())
                 .ForMember(d => d.ModifiedAt, opts => opts.Ignore())
                 .ForMember(d => d.Products, opts => opts.Ignore());
+            CreateMap<ProductImage, ProductImageResponse>();
             CreateMap<Product, ProductResponse>()
-                .ForMember(d => d.Category, opts => opts.MapFrom(source => source.Category));
+                .ForMember(d => d.Category, opts => opts.MapFrom(source => source.Category))
+                .ForMember(d => d.Tipo, opts => opts.MapFrom(source => source.Tipo.ToString()))
+                .ForMember(d => d.ImagenUrl, opts => opts.MapFrom(source => ProductPrimaryImageUrlResolver.Resolve(source)))
+                .ForMember(d => d.ProductImages, opts => opts.MapFrom(source => source.ProductImages != null
+                    ? source.ProductImages.OrderBy(pi => pi.SortOrder).ToList()
+                    : new List<ProductImage>()))
+                .ForMember(d => d.Tags, opts => opts.MapFrom(source => source.ProductTags != null
+                    ? source.ProductTags.Select(pt => pt.Tag).Where(t => t != null).Select(t => new TagDto { Id = t!.Id, Name = t.Name, Slug = t.Slug, Color = t.Color })
+                    : Enumerable.Empty<TagDto>()));
 
             CreateMap<CreateProductRequest, Product>()
                 .ForMember(d => d.Id, opts => opts.Ignore())
@@ -63,7 +76,8 @@ namespace APICore.API.Utils
                 .ForMember(d => d.ModifiedAt, opts => opts.Ignore())
                 .ForMember(d => d.Category, opts => opts.Ignore())
                 .ForMember(d => d.Inventories, opts => opts.Ignore())
-                .ForMember(d => d.InventoryMovements, opts => opts.Ignore());
+                .ForMember(d => d.InventoryMovements, opts => opts.Ignore())
+                .ForMember(d => d.Tipo, opts => opts.Ignore());
 
             CreateMap<Inventory, InventoryResponse>()
                 .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null))
@@ -118,6 +132,15 @@ namespace APICore.API.Utils
 
             CreateMap<SaleReturnItem, SaleReturnItemResponse>()
                 .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null));
+
+            CreateMap<Plan, PlanResponse>();
+            CreateMap<Subscription, SubscriptionResponse>()
+                .ForMember(d => d.DaysRemaining, opts => opts.MapFrom(s => SubscriptionDisplayHelper.ComputeDaysRemaining(s.StartDate, s.EndDate, s.BillingCycle, s.Plan != null ? s.Plan.Name : null, DateTime.UtcNow)))
+                .ForMember(d => d.Plan, opts => opts.MapFrom(s => s.Plan))
+                .ForMember(d => d.Organization, opts => opts.MapFrom(s => s.Organization));
+            CreateMap<SubscriptionRequest, SubscriptionRequestResponse>()
+                .ForMember(d => d.Subscription, opts => opts.MapFrom(r => r.Subscription))
+                .ForMember(d => d.Organization, opts => opts.MapFrom(r => r.Subscription != null ? r.Subscription.Organization : null));
         }
     }
 }

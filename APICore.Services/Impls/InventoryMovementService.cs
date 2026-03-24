@@ -38,14 +38,18 @@ namespace APICore.Services.Impls
             _emailService = emailService;
         }
 
-       
-        public async Task<InventoryMovement> CreateMovement(CreateInventoryMovementRequest request, int userId)
+        public async Task<InventoryMovement> CreateMovement(CreateInventoryMovementRequest request, int userId, int? userLocationId = null)
         {
+            // Si el usuario tiene ubicación asignada, el movimiento es siempre en esa ubicación (no se puede cambiar).
+            var effectiveLocationId = userLocationId ?? request.LocationId;
+
             var product = await _uow.ProductRepository.FirstOrDefaultAsync(p => p.Id == request.ProductId);
             if (product == null)
                 throw new ProductNotFoundException(_localizer);
 
-            var location = await _uow.LocationRepository.FirstOrDefaultAsync(l => l.Id == request.LocationId);
+            var isElaborado = product.Tipo == ProductType.elaborado;
+
+            var location = await _uow.LocationRepository.FirstOrDefaultAsync(l => l.Id == effectiveLocationId);
             if (location == null)
                 throw new LocationNotFoundException(_localizer);
 
@@ -68,13 +72,13 @@ namespace APICore.Services.Impls
             var quantity = DecimalRoundingHelper.RoundQuantity(request.Quantity, decimals);
             var movementType = (InventoryMovementType)request.Type;
 
-            var inventory = await _uow.InventoryRepository.FirstOrDefaultAsync(i => i.ProductId == request.ProductId && i.LocationId == request.LocationId);
+            var inventory = await _uow.InventoryRepository.FirstOrDefaultAsync(i => i.ProductId == request.ProductId && i.LocationId == effectiveLocationId);
             decimal previousStock;
             decimal newStock;
 
             if (inventory == null)
             {
-                // No existe inventario: crear solo para entrada o ajuste; salida no permitida.
+               
                 switch (movementType)
                 {
                     case InventoryMovementType.entry:
@@ -82,17 +86,23 @@ namespace APICore.Services.Impls
                             throw new InvalidQuantityBadRequestException(_localizer);
                         previousStock = 0;
                         newStock = quantity;
-                        inventory = CreateNewInventory(request.ProductId, request.LocationId, newStock, decimals, _inventorySettings.DefaultUnitOfMeasure);
+                        inventory = CreateNewInventory(request.ProductId, effectiveLocationId, newStock, decimals, _inventorySettings.DefaultUnitOfMeasure);
                         await _uow.InventoryRepository.AddAsync(inventory);
                         break;
                     case InventoryMovementType.exit:
-                        throw new InsufficientStockBadRequestException(_localizer);
-                    case InventoryMovementType.adjustment:
-                        newStock = DecimalRoundingHelper.RoundQuantity(quantity, decimals);
-                        if (!allowNegative && newStock < 0)
+                        if (!isElaborado)
                             throw new InsufficientStockBadRequestException(_localizer);
                         previousStock = 0;
-                        inventory = CreateNewInventory(request.ProductId, request.LocationId, newStock, decimals, _inventorySettings.DefaultUnitOfMeasure);
+                        newStock = DecimalRoundingHelper.RoundQuantity(-quantity, decimals);
+                        inventory = CreateNewInventory(request.ProductId, effectiveLocationId, newStock, decimals, _inventorySettings.DefaultUnitOfMeasure);
+                        await _uow.InventoryRepository.AddAsync(inventory);
+                        break;
+                    case InventoryMovementType.adjustment:
+                        newStock = DecimalRoundingHelper.RoundQuantity(quantity, decimals);
+                        if (!isElaborado && !allowNegative && newStock < 0)
+                            throw new InsufficientStockBadRequestException(_localizer);
+                        previousStock = 0;
+                        inventory = CreateNewInventory(request.ProductId, effectiveLocationId, newStock, decimals, _inventorySettings.DefaultUnitOfMeasure);
                         await _uow.InventoryRepository.AddAsync(inventory);
                         break;
                     default:
@@ -113,12 +123,12 @@ namespace APICore.Services.Impls
                         if (quantity <= 0)
                             throw new InvalidQuantityBadRequestException(_localizer);
                         newStock = DecimalRoundingHelper.RoundQuantity(previousStock - quantity, decimals);
-                        if (!allowNegative && newStock < 0)
+                        if (!isElaborado && !allowNegative && newStock < 0)
                             throw new InsufficientStockBadRequestException(_localizer);
                         break;
                     case InventoryMovementType.adjustment:
                         newStock = DecimalRoundingHelper.RoundQuantity(quantity, decimals);
-                        if (!allowNegative && newStock < 0)
+                        if (!isElaborado && !allowNegative && newStock < 0)
                             throw new InsufficientStockBadRequestException(_localizer);
                         break;
                     default:
@@ -132,7 +142,7 @@ namespace APICore.Services.Impls
             var movement = new InventoryMovement
             {
                 ProductId = request.ProductId,
-                LocationId = request.LocationId,
+                LocationId = effectiveLocationId,
                 Type = movementType,
                 Reason = reason,
                 Quantity = quantity,
@@ -150,8 +160,9 @@ namespace APICore.Services.Impls
             await _uow.InventoryMovementRepository.AddAsync(movement);
             await _uow.CommitAsync();
 
-            if (inventory != null && newStock <= inventory.MinimumStock)
-                await TrySendLowStockAlertAsync(product.Name, inventory.MinimumStock, newStock).ConfigureAwait(false);
+            var minStock = _inventorySettings.DefaultMinimumStock;
+            if (inventory != null && newStock <= minStock)
+                await TrySendLowStockAlertAsync(product.Name, minStock, newStock).ConfigureAwait(false);
 
             return movement;
         }

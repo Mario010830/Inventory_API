@@ -24,6 +24,7 @@ namespace APICore.Services.Impls
         public int PriceRoundingDecimals => GetCached().PriceRoundingDecimals;
         public bool AllowNegativeStock => GetCached().AllowNegativeStock;
         public string DefaultUnitOfMeasure => GetCached().DefaultUnitOfMeasure;
+        public decimal DefaultMinimumStock => GetCached().DefaultMinimumStock;
 
         private InventorySettingsSnapshot GetCached()
         {
@@ -40,14 +41,22 @@ namespace APICore.Services.Impls
             var priceRoundingStr = await _settingService.GetSettingOrDefaultAsync(SettingKeys.PriceRoundingDecimals, SettingKeys.PriceRoundingDecimalsDefault.ToString(CultureInfo.InvariantCulture));
             var allowNegativeStr = await _settingService.GetSettingOrDefaultAsync(SettingKeys.AllowNegativeStock, SettingKeys.AllowNegativeStockDefault.ToString(CultureInfo.InvariantCulture));
             var defaultUnit = await _settingService.GetSettingOrDefaultAsync(SettingKeys.DefaultUnitOfMeasure, SettingKeys.DefaultUnitOfMeasureDefault);
+            var minStockStr = await _settingService.GetSettingOrDefaultAsync(SettingKeys.DefaultMinimumStock, SettingKeys.DefaultMinimumStockValue.ToString(CultureInfo.InvariantCulture));
 
             return new InventorySettingsSnapshot
             {
                 RoundingDecimals = ParseInt(roundingStr, SettingKeys.RoundingDecimalsDefault),
                 PriceRoundingDecimals = ParseInt(priceRoundingStr, SettingKeys.PriceRoundingDecimalsDefault),
                 AllowNegativeStock = ParseBool(allowNegativeStr, SettingKeys.AllowNegativeStockDefault),
-                DefaultUnitOfMeasure = string.IsNullOrWhiteSpace(defaultUnit) ? SettingKeys.DefaultUnitOfMeasureDefault : defaultUnit.Trim()
+                DefaultUnitOfMeasure = string.IsNullOrWhiteSpace(defaultUnit) ? SettingKeys.DefaultUnitOfMeasureDefault : defaultUnit.Trim(),
+                DefaultMinimumStock = ParseDecimal(minStockStr, SettingKeys.DefaultMinimumStockValue)
             };
+        }
+
+        private static decimal ParseDecimal(string value, decimal defaultValue)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return defaultValue;
+            return decimal.TryParse(value.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : defaultValue;
         }
 
         private static int ParseInt(string value, int defaultValue)
@@ -79,6 +88,7 @@ namespace APICore.Services.Impls
             public int PriceRoundingDecimals { get; set; }
             public bool AllowNegativeStock { get; set; }
             public string DefaultUnitOfMeasure { get; set; } = SettingKeys.DefaultUnitOfMeasureDefault;
+            public decimal DefaultMinimumStock { get; set; } = SettingKeys.DefaultMinimumStockValue;
         }
     }
 }

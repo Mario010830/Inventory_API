@@ -8,7 +8,6 @@ using APICore.Services;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -71,13 +70,12 @@ namespace APICore.API.Controllers
             return Ok(new ApiOkResponse(user));
         }
 
-        [HttpPut]
+        [HttpPut("{id}")]
         [RequirePermission(PermissionCodes.UserUpdate)]
-        public async Task<IActionResult> EditUser(int id, UpdateUserRequest user)
+        public async Task<IActionResult> EditUser(int id, [FromBody] UpdateUserRequest user)
         {
             await _userService.UpdateUser(id, user);
             return NoContent();
-            
         }
 
     }

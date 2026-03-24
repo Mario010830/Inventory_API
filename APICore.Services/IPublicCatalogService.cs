@@ -14,9 +14,22 @@ namespace APICore.Services
 
         /// <summary>
         /// Devuelve el catálogo de productos con IsForSale = true para una ubicación específica,
-        /// incluyendo el stock disponible en esa ubicación.
+        /// incluyendo el stock disponible en esa ubicación y todas las imágenes públicas (Images).
         /// No requiere autenticación.
         /// </summary>
         Task<IEnumerable<PublicCatalogItemResponse>> GetCatalogByLocationAsync(int locationId);
+
+        /// <summary>
+        /// Devuelve el catálogo público combinado de todas las ubicaciones activas,
+        /// con paginación.
+        /// No requiere autenticación.
+        /// </summary>
+        Task<PublicCatalogPaginatedResponse> GetCatalogAllAsync(int page, int pageSize);
+
+        /// <summary>
+        /// Lista etiquetas que tienen al menos un producto público (IsForSale) asignado.
+        /// No requiere autenticación. Para filtros en el catálogo.
+        /// </summary>
+        Task<IEnumerable<TagDto>> GetPublicTagsAsync();
     }
 }

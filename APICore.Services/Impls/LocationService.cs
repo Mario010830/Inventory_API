@@ -1,7 +1,9 @@
+#nullable enable
 using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
 using APICore.Data.Entities;
 using APICore.Data.UoW;
+using APICore.Services;
 using APICore.Services.Exceptions;
 using APICore.Services.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +11,7 @@ using Microsoft.Extensions.Localization;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace APICore.Services.Impls
 {
@@ -16,11 +19,13 @@ namespace APICore.Services.Impls
     {
         private readonly IUnitOfWork _uow;
         private readonly IStringLocalizer<ILocationService> _localizer;
+        private readonly ISubscriptionQuotaService _subscriptionQuotaService;
 
-        public LocationService(IUnitOfWork uow, IStringLocalizer<ILocationService> localizer)
+        public LocationService(IUnitOfWork uow, IStringLocalizer<ILocationService> localizer, ISubscriptionQuotaService subscriptionQuotaService)
         {
             _uow = uow;
             _localizer = localizer;
+            _subscriptionQuotaService = subscriptionQuotaService ?? throw new ArgumentNullException(nameof(subscriptionQuotaService));
         }
 
         public async Task<LocationResponse> CreateLocation(CreateLocationRequest request)
@@ -33,19 +38,43 @@ namespace APICore.Services.Impls
             if (codeExists)
                 throw new LocationCodeInUseBadRequestException(_localizer);
 
+            await _subscriptionQuotaService.EnsureCanAddLocationAsync(request.OrganizationId);
+
+            if (request.BusinessCategoryId.HasValue && request.BusinessCategoryId.Value > 0)
+            {
+                var bc = await _uow.BusinessCategoryRepository.GetAsync(request.BusinessCategoryId.Value);
+                if (bc == null)
+                    throw new BusinessCategoryNotFoundException();
+            }
+
             var location = new Location
             {
                 OrganizationId = request.OrganizationId,
+                BusinessCategoryId = request.BusinessCategoryId.HasValue && request.BusinessCategoryId.Value > 0
+                    ? request.BusinessCategoryId
+                    : null,
                 Name = request.Name,
                 Code = request.Code.Trim(),
                 Description = request.Description?.Trim(),
                 WhatsAppContact = request.WhatsAppContact?.Trim(),
+                PhotoUrl = request.PhotoUrl?.Trim(),
+                Province = request.Province?.Trim(),
+                Municipality = request.Municipality?.Trim(),
+                Street = request.Street?.Trim(),
+                BusinessHoursJson = SerializeBusinessHours(request.BusinessHours),
+                Latitude = request.Coordinates?.Lat,
+                Longitude = request.Coordinates?.Lng,
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
             await _uow.LocationRepository.AddAsync(location);
             await _uow.CommitAsync();
-            return ToResponse(location, organization);
+
+            var created = await _uow.LocationRepository.FindBy(l => l.Id == location.Id)
+                .Include(l => l.Organization)
+                .Include(l => l.BusinessCategory)
+                .FirstAsync();
+            return ToResponse(created, created.Organization ?? organization);
         }
 
         public async Task DeleteLocation(int id)
@@ -86,6 +115,7 @@ namespace APICore.Services.Impls
         {
             var location = await _uow.LocationRepository.FindBy(l => l.Id == id)
                 .Include(l => l.Organization)
+                .Include(l => l.BusinessCategory)
                 .FirstOrDefaultAsync();
             if (location == null)
                 throw new LocationNotFoundException(_localizer);
@@ -94,7 +124,7 @@ namespace APICore.Services.Impls
 
         public async Task<PaginatedList<LocationResponse>> GetAllLocations(int? page, int? perPage, int? organizationId = null, string sortOrder = null)
         {
-            var query = _uow.LocationRepository.GetAllIncluding(l => l.Organization).AsQueryable();
+            var query = _uow.LocationRepository.GetAllIncluding(l => l.Organization, l => l.BusinessCategory).AsQueryable();
             if (organizationId.HasValue)
                 query = query.Where(l => l.OrganizationId == organizationId.Value);
             query = query.OrderBy(l => l.Code);
@@ -132,6 +162,38 @@ namespace APICore.Services.Impls
                 location.Description = request.Description;
             if (request.WhatsAppContact != null)
                 location.WhatsAppContact = request.WhatsAppContact.Trim();
+            if (request.PhotoUrl != null)
+                location.PhotoUrl = request.PhotoUrl.Trim();
+            if (request.Province != null)
+                location.Province = request.Province.Trim();
+            if (request.Municipality != null)
+                location.Municipality = request.Municipality.Trim();
+            if (request.Street != null)
+                location.Street = request.Street.Trim();
+
+            if (request.BusinessHours != null)
+            {
+                location.BusinessHoursJson = SerializeBusinessHours(request.BusinessHours);
+            }
+
+            if (request.Coordinates != null)
+            {
+                location.Latitude = request.Coordinates.Lat;
+                location.Longitude = request.Coordinates.Lng;
+            }
+
+            if (request.BusinessCategoryId != null)
+            {
+                if (request.BusinessCategoryId.Value <= 0)
+                    location.BusinessCategoryId = null;
+                else
+                {
+                    var bc = await _uow.BusinessCategoryRepository.GetAsync(request.BusinessCategoryId.Value);
+                    if (bc == null)
+                        throw new BusinessCategoryNotFoundException();
+                    location.BusinessCategoryId = request.BusinessCategoryId.Value;
+                }
+            }
 
             location.ModifiedAt = DateTime.UtcNow;
             _uow.LocationRepository.Update(location);
@@ -140,6 +202,12 @@ namespace APICore.Services.Impls
 
         private static LocationResponse ToResponse(Location location, Organization? organization = null)
         {
+            var businessHours = DeserializeBusinessHours(location.BusinessHoursJson);
+            var coordinates = (location.Latitude.HasValue && location.Longitude.HasValue)
+                ? new PublicLocationCoordinatesDto { Lat = location.Latitude.Value, Lng = location.Longitude.Value }
+                : null;
+            var isOpenNow = CalculateIsOpenNow(businessHours, DateTime.Now);
+
             return new LocationResponse
             {
                 Id = location.Id,
@@ -149,9 +217,71 @@ namespace APICore.Services.Impls
                 Code = location.Code,
                 Description = location.Description,
                 WhatsAppContact = location.WhatsAppContact,
+                PhotoUrl = location.PhotoUrl,
+                Province = location.Province,
+                Municipality = location.Municipality,
+                Street = location.Street,
+                BusinessHours = businessHours,
+                Coordinates = coordinates,
+                IsOpenNow = isOpenNow,
+                BusinessCategoryId = location.BusinessCategoryId,
+                BusinessCategory = location.BusinessCategory != null
+                    ? new BusinessCategorySummaryDto
+                    {
+                        Name = location.BusinessCategory.Name,
+                        Icon = location.BusinessCategory.Icon
+                    }
+                    : null,
                 CreatedAt = location.CreatedAt,
                 ModifiedAt = location.ModifiedAt,
             };
+        }
+
+        private static PublicLocationBusinessHoursDto? DeserializeBusinessHours(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            try
+            {
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return JsonSerializer.Deserialize<PublicLocationBusinessHoursDto>(json, options);
+            }
+            catch { return null; }
+        }
+
+        private static bool CalculateIsOpenNow(PublicLocationBusinessHoursDto? businessHours, DateTime now)
+        {
+            if (businessHours == null) return false;
+            PublicLocationDayHoursDto? todayHours = now.DayOfWeek switch
+            {
+                DayOfWeek.Monday => businessHours.Monday,
+                DayOfWeek.Tuesday => businessHours.Tuesday,
+                DayOfWeek.Wednesday => businessHours.Wednesday,
+                DayOfWeek.Thursday => businessHours.Thursday,
+                DayOfWeek.Friday => businessHours.Friday,
+                DayOfWeek.Saturday => businessHours.Saturday,
+                DayOfWeek.Sunday => businessHours.Sunday,
+                _ => null
+            };
+            if (todayHours == null) return false;
+            if (!TimeSpan.TryParse(todayHours.Open, out var openTime) || !TimeSpan.TryParse(todayHours.Close, out var closeTime))
+                return false;
+            var currentTime = now.TimeOfDay;
+            return currentTime >= openTime && currentTime <= closeTime;
+        }
+
+        private static string? SerializeBusinessHours(PublicLocationBusinessHoursRequest? businessHours)
+        {
+            if (businessHours == null)
+            {
+                return null;
+            }
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            return JsonSerializer.Serialize(businessHours, options);
         }
     }
 }

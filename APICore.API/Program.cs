@@ -8,6 +8,10 @@ namespace APICore.API
     {
         public static void Main(string[] args)
         {
+            // Npgsql 6+: por defecto timestamptz solo acepta UTC. Activa compatibilidad con DateTime Local/Unspecified.
+            // Preferible seguir usando DateTime.UtcNow en modelo/EF; este switch evita fallos si queda código con hora local.
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
             CreateHostBuilder(args).Build().Run();
         }
 

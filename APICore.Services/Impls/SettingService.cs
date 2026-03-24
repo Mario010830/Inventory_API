@@ -61,6 +61,24 @@ namespace APICore.Services.Impls
             return list?.ToList() ?? new List<Setting>();
         }
 
+        public async Task<IReadOnlyDictionary<string, string>> GetSettingsDictionaryForCurrentOrgAsync()
+        {
+            var list = await _uow.SettingRepository.GetAllAsync();
+            if (list == null || list.Count == 0)
+                return new Dictionary<string, string>();
+
+            var orgId = _context.CurrentOrganizationId;
+            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in list.Where(s => s.OrganizationId == null))
+                dict[s.Key] = s.Value ?? string.Empty;
+            if (orgId > 0)
+            {
+                foreach (var s in list.Where(s => s.OrganizationId == orgId))
+                    dict[s.Key] = s.Value ?? string.Empty;
+            }
+            return dict;
+        }
+
         public async Task<Setting> SetSettingAsync(SettingRequest settingRequest)
         {
             if (settingRequest == null)

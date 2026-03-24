@@ -34,5 +34,10 @@ namespace APICore.Common.DTO.Request
         public DateTime Birthday { get; set; }
 
         public string Phone { get; set; }
+
+        [Required]
+        public int PlanId { get; set; }
+
+        public string BillingCycle { get; set; } = global::APICore.Common.Constants.BillingCycle.Monthly;
     }
 }

@@ -63,6 +63,47 @@ namespace APICore.API.Services
             return url;
         }
 
+        public async Task<string> UploadLocationImageAsync(Stream fileStream, string fileName, string contentType)
+        {
+            if (!IsAllowedImageType(contentType))
+                throw new ArgumentException($"Tipo de archivo no permitido: {contentType}. Solo se permiten: jpeg, png, gif, webp.");
+
+            var extension = Path.GetExtension(fileName);
+            if (string.IsNullOrEmpty(extension))
+                extension = GetExtensionFromContentType(contentType);
+
+            var locationsSubfolder = "locations";
+            var fullStoragePath = Path.Combine(_storagePath, locationsSubfolder);
+            var uniqueFileName = $"{Guid.NewGuid():N}{extension}";
+            Directory.CreateDirectory(fullStoragePath);
+            var fullPath = Path.Combine(fullStoragePath, uniqueFileName);
+
+            await using (var fileStreamOut = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await fileStream.CopyToAsync(fileStreamOut);
+            }
+
+            var relativePath = _requestPathPrefix + locationsSubfolder + "/" + uniqueFileName;
+            var baseUrl = GetBaseUrl();
+            var url = baseUrl + relativePath.TrimStart('/');
+            _logger.LogInformation("Imagen de ubicación guardada: {Path}", fullPath);
+            return url;
+        }
+
+        public Task DeleteLocationImageAsync(string objectKeyOrUrl)
+        {
+            var fileName = ExtractFileNameFromUrlOrKey(objectKeyOrUrl);
+            if (string.IsNullOrEmpty(fileName)) return Task.CompletedTask;
+            var locationsSubfolder = "locations";
+            var fullPath = Path.Combine(_storagePath, locationsSubfolder, fileName);
+            if (File.Exists(fullPath))
+            {
+                try { File.Delete(fullPath); _logger.LogInformation("Imagen de ubicación eliminada: {Path}", fullPath); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Error al eliminar imagen de ubicación: {Path}", fullPath); }
+            }
+            return Task.CompletedTask;
+        }
+
         public Task DeleteProductImageAsync(string objectKeyOrUrl)
         {
             var fileName = ExtractFileNameFromUrlOrKey(objectKeyOrUrl);

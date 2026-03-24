@@ -2,13 +2,16 @@ using APICore.Common.Constants;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
 using APICore.Data.UoW;
+using APICore.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace APICore.API.Utils
@@ -18,12 +21,14 @@ namespace APICore.API.Utils
         public static async Task SeedDatabaseAsync(IServiceProvider serviceProvider)
         {
             var uow = serviceProvider.GetRequiredService<IUnitOfWork>();
+            var currencyService = serviceProvider.GetRequiredService<ICurrencyService>();
 
-            await SeedLocationsRolesAndPermissionsAsync(uow);
+            await SeedLocationsRolesAndPermissionsAsync(uow, currencyService);
             await CreateDefaultUserAsync(uow);
+            await SeedDefaultTagsAsync(uow);
         }
 
-        private static async Task SeedLocationsRolesAndPermissionsAsync(IUnitOfWork uow)
+        private static async Task SeedLocationsRolesAndPermissionsAsync(IUnitOfWork uow, ICurrencyService currencyService)
         {
             var now = DateTime.UtcNow;
 
@@ -35,6 +40,7 @@ namespace APICore.API.Utils
                     Name = "Organización Principal",
                     Code = "DEFAULT",
                     Description = "Organización por defecto",
+                    IsActive = true,
                     CreatedAt = now,
                     ModifiedAt = now
                 };
@@ -88,23 +94,44 @@ namespace APICore.API.Utils
                 await uow.CommitAsync();
             }
 
-            var permissionCodes = new[] {
+            var permissionCodes = new[]
+            {
                 PermissionCodes.Admin,
+
                 PermissionCodes.ProductRead, PermissionCodes.ProductCreate, PermissionCodes.ProductUpdate, PermissionCodes.ProductDelete,
+
                 PermissionCodes.UserRead, PermissionCodes.UserCreate, PermissionCodes.UserUpdate, PermissionCodes.UserDelete,
+
                 PermissionCodes.InventoryRead, PermissionCodes.InventoryManage,
+
                 PermissionCodes.InventoryMovementRead, PermissionCodes.InventoryMovementCreate,
+
                 PermissionCodes.SupplierRead, PermissionCodes.SupplierCreate, PermissionCodes.SupplierUpdate, PermissionCodes.SupplierDelete,
+
                 PermissionCodes.ProductCategoryRead, PermissionCodes.ProductCategoryCreate, PermissionCodes.ProductCategoryUpdate, PermissionCodes.ProductCategoryDelete,
+
                 PermissionCodes.LogRead,
+
                 PermissionCodes.SettingRead, PermissionCodes.SettingManage,
+
                 PermissionCodes.RoleRead, PermissionCodes.RoleCreate, PermissionCodes.RoleUpdate, PermissionCodes.RoleDelete,
+
                 PermissionCodes.OrganizationRead, PermissionCodes.OrganizationCreate, PermissionCodes.OrganizationUpdate, PermissionCodes.OrganizationDelete,
+
                 PermissionCodes.LocationRead, PermissionCodes.LocationCreate, PermissionCodes.LocationUpdate, PermissionCodes.LocationDelete,
+
                 PermissionCodes.ContactRead, PermissionCodes.ContactCreate, PermissionCodes.ContactUpdate, PermissionCodes.ContactDelete,
+
                 PermissionCodes.LeadRead, PermissionCodes.LeadCreate, PermissionCodes.LeadUpdate, PermissionCodes.LeadDelete,
+
                 PermissionCodes.SaleRead, PermissionCodes.SaleCreate, PermissionCodes.SaleUpdate, PermissionCodes.SaleCancel,
-                PermissionCodes.SaleReport, PermissionCodes.SaleReturnCreate
+                PermissionCodes.SaleReport, PermissionCodes.SaleReturnCreate,
+                PermissionCodes.TagRead, PermissionCodes.TagCreate, PermissionCodes.TagUpdate, PermissionCodes.TagDelete,
+
+                PermissionCodes.SubscriptionRead, PermissionCodes.SubscriptionManage,
+                PermissionCodes.PlanRead, PermissionCodes.PlanManage,
+
+                PermissionCodes.CurrencyRead, PermissionCodes.CurrencyCreate, PermissionCodes.CurrencyUpdate, PermissionCodes.CurrencyDelete,
             };
 
             foreach (var code in permissionCodes)
@@ -125,6 +152,13 @@ namespace APICore.API.Utils
             }
             await uow.CommitAsync();
 
+            await currencyService.EnsureBaseCurrencyForOrganizationAsync(defaultOrganization.Id);
+
+            await SeedBusinessCategoriesAsync(uow, now);
+
+            await SeedPlansAsync(uow, now);
+            await EnsureDefaultOrganizationSubscriptionAsync(uow, defaultOrganization, now);
+
             var allPerms = await uow.PermissionRepository.GetAll().ToListAsync();
             foreach (var role in new[] { superAdminRole, adminRole })
             {
@@ -135,6 +169,152 @@ namespace APICore.API.Utils
                     await uow.RolePermissionRepository.AddAsync(new RolePermission { RoleId = role.Id, PermissionId = perm.Id });
                 }
             }
+            await uow.CommitAsync();
+        }
+
+        private static async Task SeedPlansAsync(IUnitOfWork uow, DateTime now)
+        {
+            var seedPlans = new[]
+            {
+                new { Name = PlanNames.Free, DisplayName = "Free", Description = (string?)null, MaxProducts = 5, MaxUsers = 3, MaxLocations = 1, Monthly = 0m, Annual = 0m },
+                new { Name = PlanNames.Pro, DisplayName = "Pro", Description = (string?)null, MaxProducts = 100, MaxUsers = 50, MaxLocations = 5, Monthly = 5000m, Annual = 60000m },
+                new { Name = PlanNames.Enterprise, DisplayName = "Enterprise", Description = (string?)null, MaxProducts = -1, MaxUsers = -1, MaxLocations = -1, Monthly = 99.99m, Annual = 999.99m },
+            };
+
+            foreach (var p in seedPlans)
+            {
+                var existing = await uow.PlanRepository.FindBy(x => x.Name == p.Name).FirstOrDefaultAsync();
+                if (existing != null)
+                    continue;
+
+                var plan = new Plan
+                {
+                    Name = p.Name,
+                    DisplayName = p.DisplayName,
+                    Description = p.Description,
+                    MaxProducts = p.MaxProducts,
+                    MaxUsers = p.MaxUsers,
+                    MaxLocations = p.MaxLocations,
+                    MonthlyPrice = p.Monthly,
+                    AnnualPrice = p.Annual,
+                    IsActive = true,
+                    CreatedAt = now,
+                    ModifiedAt = now,
+                };
+                await uow.PlanRepository.AddAsync(plan);
+            }
+
+            await uow.CommitAsync();
+        }
+
+        private static async Task SeedBusinessCategoriesAsync(IUnitOfWork uow, DateTime now)
+        {
+            var seedRows = new (string Name, string Icon)[]
+            {
+                ("Perfumería", "sparkles"),
+                ("Tienda general", "shopping-bag"),
+                ("Ropa y accesorios", "shirt"),
+                ("Restaurante", "utensils"),
+                ("Heladería", "ice-cream"),
+                ("Farmacia", "cross"),
+                ("Electrónica", "cpu"),
+                ("Hogar y decoración", "home"),
+                ("Belleza y cuidado personal", "heart"),
+                ("Panadería", "croissant"),
+                ("Dulcería", "candy"),
+                ("Cafetería", "coffee"),
+                ("Bar", "wine"),
+                ("Pizzería", "pizza"),
+                ("Floristería", "flower"),
+                ("Joyería y relojería", "gem"),
+                ("Ferretería", "wrench"),
+                ("Juguetería", "gamepad-2"),
+                ("Tienda de mascotas", "paw-print"),
+                ("Óptica", "glasses"),
+                ("Artículos para bebés", "baby"),
+                ("Gimnasio", "dumbbell"),
+                ("Academia", "book-open"),
+                ("Tienda de videojuegos", "joystick"),
+                ("Servicio informático", "laptop"),
+                ("Móviles y accesorios", "smartphone"),
+                ("Marketing y publicidad", "megaphone"),
+                ("Organización de eventos", "calendar"),
+                ("Carnicería", "drumstick"),
+                ("Pescadería", "fish"),
+                ("Productos naturales", "leaf"),
+                ("Otros", "more-horizontal"),
+            };
+
+            for (var i = 0; i < seedRows.Length; i++)
+            {
+                var (name, icon) = seedRows[i];
+                var slug = GenerateBusinessCategorySeedSlug(name);
+                var existing = await uow.BusinessCategoryRepository.FindBy(b => b.Slug == slug).FirstOrDefaultAsync();
+                if (existing != null)
+                    continue;
+
+                await uow.BusinessCategoryRepository.AddAsync(new BusinessCategory
+                {
+                    Name = name,
+                    Slug = slug,
+                    Icon = icon,
+                    IsActive = true,
+                    SortOrder = i,
+                    CreatedAt = now,
+                    ModifiedAt = now
+                });
+            }
+
+            await uow.CommitAsync();
+        }
+
+        private static string GenerateBusinessCategorySeedSlug(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+
+            var normalized = name.Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder();
+            foreach (var c in normalized)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                    sb.Append(c);
+            }
+            var slug = sb.ToString().Normalize(NormalizationForm.FormC)
+                .ToLowerInvariant()
+                .Trim();
+            slug = Regex.Replace(slug, @"\s+", "-");
+            slug = Regex.Replace(slug, @"[^a-z0-9-]", "");
+            slug = Regex.Replace(slug, @"-+", "-").Trim('-');
+            return slug;
+        }
+
+        private static async Task EnsureDefaultOrganizationSubscriptionAsync(IUnitOfWork uow, Organization defaultOrganization, DateTime now)
+        {
+            if (defaultOrganization.SubscriptionId.HasValue)
+                return;
+
+            var freePlan = await uow.PlanRepository.FindBy(p => p.Name == PlanNames.Free).FirstOrDefaultAsync();
+            if (freePlan == null)
+                return;
+
+            var subscription = new Subscription
+            {
+                OrganizationId = defaultOrganization.Id,
+                PlanId = freePlan.Id,
+                BillingCycle = BillingCycle.Monthly,
+                Status = SubscriptionStatus.Active,
+                StartDate = now,
+                EndDate = now.AddMonths(1),
+                UpdatedAt = now,
+                CreatedAt = now,
+                ModifiedAt = now,
+            };
+            await uow.SubscriptionRepository.AddAsync(subscription);
+            await uow.CommitAsync();
+
+            defaultOrganization.SubscriptionId = subscription.Id;
+            defaultOrganization.IsActive = true;
+            uow.OrganizationRepository.Update(defaultOrganization);
             await uow.CommitAsync();
         }
 
@@ -189,6 +369,27 @@ namespace APICore.API.Utils
                     await uow.CommitAsync();
                 }
             }
+        }
+
+        private static async Task SeedDefaultTagsAsync(IUnitOfWork uow)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var (name, slug, color) in DefaultTagsSeedData.Tags)
+            {
+                var exists = await uow.TagRepository.FirstOrDefaultAsync(t => t.Slug == slug);
+                if (exists != null)
+                    continue;
+
+                await uow.TagRepository.AddAsync(new Tag
+                {
+                    Name = name,
+                    Slug = slug,
+                    Color = color,
+                    CreatedAt = now
+                });
+            }
+
+            await uow.CommitAsync();
         }
     }
 }

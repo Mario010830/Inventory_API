@@ -42,11 +42,22 @@ namespace APICore.Services.Impls
             var isOrgAdmin = string.Equals(user.Role?.Name, RoleNames.Admin, System.StringComparison.OrdinalIgnoreCase);
             var isAdmin = user.Role?.IsSystem == true || isSuperAdmin || isOrgAdmin;
 
+            int? organizationId = user.OrganizationId ?? user.Location?.OrganizationId;
+
+            // SuperAdmin del seed suele tener OrganizationId null; los servicios (categorías, productos) exigen org > 0.
+            if (organizationId == null && isSuperAdmin)
+            {
+                var defaultOrg = await _context.Organizations
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.Code == "DEFAULT");
+                organizationId = defaultOrg?.Id;
+            }
+
             return new CurrentUserContext
             {
                 UserId = user.Id,
                 LocationId = user.LocationId,
-                OrganizationId = user.OrganizationId,
+                OrganizationId = organizationId,
                 RoleId = user.RoleId,
                 IsSuperAdmin = isSuperAdmin,
                 IsAdmin = isAdmin,

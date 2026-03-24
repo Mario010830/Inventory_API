@@ -16,11 +16,13 @@ namespace APICore.Services.Impls
     {
         private readonly IUnitOfWork _uow;
         private readonly CoreDbContext _context;
+        private readonly IInventorySettings _inventorySettings;
 
-        public DashboardStatsService(IUnitOfWork uow, CoreDbContext context)
+        public DashboardStatsService(IUnitOfWork uow, CoreDbContext context, IInventorySettings inventorySettings)
         {
             _uow = uow ?? throw new ArgumentNullException(nameof(uow));
             _context = context ?? throw new ArgumentNullException(nameof(context));
+            _inventorySettings = inventorySettings ?? throw new ArgumentNullException(nameof(inventorySettings));
         }
 
         public async Task<DashboardSummaryResponse> GetDashboardSummaryAsync(DateTime? from, DateTime? to)
@@ -32,9 +34,10 @@ namespace APICore.Services.Impls
             var products = _uow.ProductRepository.GetAll();
             var totalProducts = await products.CountAsync();
 
+            var minStock = _inventorySettings.DefaultMinimumStock;
             var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product);
             var inventoryValue = await inventories.SumAsync(i => i.CurrentStock * (i.Product != null ? i.Product.Costo : 0));
-            var lowStockCount = await inventories.CountAsync(i => i.CurrentStock <= i.MinimumStock);
+            var lowStockCount = await inventories.CountAsync(i => i.CurrentStock <= minStock);
 
             var now = DateTime.UtcNow;
             var weekStart = now.Date.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday);
@@ -116,12 +119,13 @@ namespace APICore.Services.Impls
 
         public async Task<ChartDonutResponse> GetStockStatusAsync()
         {
+            var minStock = _inventorySettings.DefaultMinimumStock;
             var inventories = _uow.InventoryRepository.GetAll();
             var total = await inventories.CountAsync();
             if (total == 0)
                 return new ChartDonutResponse();
-            var inRange = await inventories.CountAsync(i => i.CurrentStock > i.MinimumStock);
-            var low = await inventories.CountAsync(i => i.CurrentStock <= i.MinimumStock && i.CurrentStock > 0);
+            var inRange = await inventories.CountAsync(i => i.CurrentStock > minStock);
+            var low = await inventories.CountAsync(i => i.CurrentStock <= minStock && i.CurrentStock > 0);
             var critical = await inventories.CountAsync(i => i.CurrentStock <= 0);
             var data = new List<ChartDonutItemResponse>
             {
@@ -154,18 +158,34 @@ namespace APICore.Services.Impls
             return new ListCardResponse { Data = data };
         }
 
+     
         public async Task<ListCardResponse> GetListLowStockAsync(int limit)
         {
-            var lowStock = await _uow.InventoryRepository.GetAllIncluding(i => i.Product)
-                .Where(i => i.CurrentStock <= i.MinimumStock)
-                .OrderBy(i => i.CurrentStock)
+            var minStock = _inventorySettings.DefaultMinimumStock;
+            var unit = _inventorySettings.DefaultUnitOfMeasure;
+
+            var lowStockByProduct = await _uow.InventoryRepository.GetAll()
+                .GroupBy(i => i.ProductId)
+                .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(i => i.CurrentStock) })
+                .Where(x => x.TotalStock <= minStock)
+                .OrderBy(x => x.TotalStock)
                 .Take(limit)
                 .ToListAsync();
-            var data = lowStock.Select(i => new ListCardItemResponse
+
+            if (lowStockByProduct.Count == 0)
+                return new ListCardResponse { Data = new List<ListCardItemResponse>() };
+
+            var productIds = lowStockByProduct.Select(x => x.ProductId).ToList();
+            var productNames = await _uow.ProductRepository.GetAll()
+                .Where(p => productIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Name ?? "—");
+
+            var data = lowStockByProduct.Select(x => new ListCardItemResponse
             {
-                Primary = i.Product?.Name ?? "—",
-                Secondary = $"{i.CurrentStock} {i.UnitOfMeasure} · Mín. {i.MinimumStock}"
+                Primary = productNames.TryGetValue(x.ProductId, out var name) ? name : "—",
+                Secondary = $"{x.TotalStock} {unit} · Mín. {minStock}"
             }).ToList();
+
             return new ListCardResponse { Data = data };
         }
 
@@ -277,10 +297,11 @@ namespace APICore.Services.Impls
 
         public async Task<ProductStatsResponse> GetProductStatsAsync(DateTime? from, DateTime? to)
         {
+            var minStock = _inventorySettings.DefaultMinimumStock;
             var totalProducts = await _uow.ProductRepository.GetAll().CountAsync();
             var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product);
             var inventoryValue = await inventories.SumAsync(i => i.CurrentStock * (i.Product != null ? i.Product.Costo : 0));
-            var criticalStockCount = await inventories.CountAsync(i => i.CurrentStock <= i.MinimumStock);
+            var criticalStockCount = await inventories.CountAsync(i => i.CurrentStock <= minStock);
             var today = DateTime.UtcNow.Date;
             var movementsToday = await _uow.InventoryMovementRepository.GetAll()
                 .CountAsync(m => m.CreatedAt >= today && m.CreatedAt < today.AddDays(1));
@@ -316,14 +337,15 @@ namespace APICore.Services.Impls
             var lastEdited = await categories.OrderByDescending(c => c.ModifiedAt).FirstOrDefaultAsync();
             var lastEditedAgo = lastEdited == null ? "" : FormatTimeAgo(DateTime.UtcNow - lastEdited.ModifiedAt);
             var mostActive = await _uow.ProductRepository.GetAll()
+                .Where(p => p.CategoryId != null)
                 .GroupBy(p => p.CategoryId)
                 .OrderByDescending(g => g.Count())
                 .Select(g => g.Key)
                 .FirstOrDefaultAsync();
             string mostActiveName = "—";
-            if (mostActive > 0)
+            if (mostActive.HasValue && mostActive.Value > 0)
             {
-                var cat = await _uow.ProductCategoryRepository.FirstOrDefaultAsync(c => c.Id == mostActive);
+                var cat = await _uow.ProductCategoryRepository.FirstOrDefaultAsync(c => c.Id == mostActive.Value);
                 if (cat != null) mostActiveName = cat.Name;
             }
 
@@ -347,7 +369,7 @@ namespace APICore.Services.Impls
             var categories = categoryList.ToDictionary(c => c.Id, c => c.Name.Length > 3 ? c.Name.Substring(0, 3) : c.Name);
             var data = byCategory.Select(x => new ChartDataPointResponse
             {
-                Label = categories.TryGetValue(x.CategoryId, out var name) ? name : "Otros",
+                Label = x.CategoryId.HasValue && categories.TryGetValue(x.CategoryId.Value, out var name) ? name : "Sin categoría",
                 Value = x.Count
             }).ToList();
             return new ChartLineResponse { Data = data };
@@ -410,9 +432,10 @@ namespace APICore.Services.Impls
 
         public async Task<InventoryStatsResponse> GetInventoryStatsAsync()
         {
+            var minStock = _inventorySettings.DefaultMinimumStock;
             var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product);
             var totalValue = await inventories.SumAsync(i => i.CurrentStock * (i.Product != null ? i.Product.Costo : 0));
-            var lowStockCount = await inventories.CountAsync(i => i.CurrentStock <= i.MinimumStock);
+            var lowStockCount = await inventories.CountAsync(i => i.CurrentStock <= minStock);
             var today = DateTime.UtcNow.Date;
             var movementsCount = await _uow.InventoryMovementRepository.GetAll()
                 .CountAsync(m => m.CreatedAt >= today && m.CreatedAt < today.AddDays(1));

@@ -11,3 +11,5 @@ obj/
 
 appsettings.json
 publish/
+
+*.sql

@@ -11,8 +11,24 @@ namespace APICore.Data.Entities
         public string Name { get; set; }
         public string Code { get; set; }
         public string? Description { get; set; }
-       
         public string? WhatsAppContact { get; set; }
+      
+        public string? PhotoUrl { get; set; }
+       
+        public string? Province { get; set; }
+        
+        public string? Municipality { get; set; }
+        
+        public string? Street { get; set; }
+        
+        public string? BusinessHoursJson { get; set; }
+       
+        public double? Latitude { get; set; }
+       
+        public double? Longitude { get; set; }
+
+        public int? BusinessCategoryId { get; set; }
+        public virtual BusinessCategory? BusinessCategory { get; set; }
 
         public virtual Organization Organization { get; set; } = null!;
         public virtual ICollection<User> Users { get; set; } = new List<User>();

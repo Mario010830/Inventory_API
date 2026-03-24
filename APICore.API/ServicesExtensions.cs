@@ -2,6 +2,7 @@ using APICore.API.Utils.JsonLocalization;
 using APICore.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -9,9 +10,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using Microsoft.IdentityModel.Tokens;
-using APICore.API.Swagger;
-using Microsoft.OpenApi;
-using Microsoft.OpenApi.Models;
+// Swagger (Swashbuckle) desactivado — descomentar junto con ConfigureSwagger en Startup.
+// using APICore.API.Swagger;
+// using Microsoft.OpenApi;
+// using Microsoft.OpenApi.Models;
 using System;
 using System.Globalization;
 using System.IO;
@@ -29,12 +31,13 @@ namespace APICore.API
 
             services.AddDbContextPool<CoreDbContext>(
                 dbContextOptions => dbContextOptions
-                    .UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure())
+                    .UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure())
                     .EnableSensitiveDataLogging()
                     .EnableDetailedErrors()
             );
         }
 
+        /*
         public static void ConfigureSwagger(this IServiceCollection services)
         {
             services.AddSwaggerGen(options =>
@@ -72,9 +75,11 @@ namespace APICore.API
                     options.IncludeXmlComments(fileName);
                 if (File.Exists(fileName2))
                     options.IncludeXmlComments(fileName2);
+                options.MapType<IFormFile>(() => new OpenApiSchema { Type = "string", Format = "binary", Description = "Archivo (imagen)" });
                 options.OperationFilter<FileUploadOperationFilter>();
             });
         }
+        */
 
         public static void ConfigureTokenAuth(this IServiceCollection services, IConfiguration config)
         {
@@ -117,18 +122,27 @@ namespace APICore.API
             });
         }
 
-        public static void ConfigureCors(this IServiceCollection services)
+        /// <summary>Orígenes permitidos: array <c>Cors:AllowedOrigins</c> en appsettings o variables de entorno (Cors__AllowedOrigins__0, …).</summary>
+        public static void ConfigureCors(this IServiceCollection services, IConfiguration configuration)
         {
+            var origins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                ?? Array.Empty<string>();
+
             services.AddCors(options =>
-           {
-               options.AddDefaultPolicy(builder =>
-                   builder.SetIsOriginAllowed(_ => true)
-                       .AllowAnyMethod()
-                       .AllowAnyHeader()
-                       .AllowCredentials()
-                       .WithExposedHeaders(new string[] { "X-Pagination", "Authorization", "RefreshToken" })
-                       );
-           });
+            {
+                options.AddDefaultPolicy(builder =>
+                {
+                    if (origins.Length > 0)
+                        builder.WithOrigins(origins);
+                    else
+                        builder.SetIsOriginAllowed(_ => false);
+
+                    builder.AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials()
+                        .WithExposedHeaders("X-Pagination", "Authorization", "RefreshToken");
+                });
+            });
         }
 
         public static void ConfigureI18N(this IServiceCollection services)
@@ -156,7 +170,7 @@ namespace APICore.API
         public static void ConfigureHealthChecks(this IServiceCollection services, IConfiguration config)
         {
             services.AddHealthChecks()
-                   .AddDbContextCheck<CoreDbContext>("sqlserver");
+                   .AddDbContextCheck<CoreDbContext>("postgresql");
         }
 
         public static void ConfigureDetection(this IServiceCollection services)
