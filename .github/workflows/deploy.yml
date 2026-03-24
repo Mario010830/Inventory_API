@@ -21,6 +21,8 @@ jobs:
       - name: Publish
         run: dotnet publish APICore.API/APICore.API.csproj -c Release -o ./publish
 
+      # Carpeta local "publish" → remoto /var/www/strova/publish/ (sin publish/publish anidado).
+      # No usar "./publish/*" con target .../publish: el action creaba /var/www/strova/publish/publish/APICore.API.dll
       - name: Copiar al VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -28,8 +30,8 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_KEY }}
           port: 22
-          source: "./publish/*"
-          target: "/var/www/strova/publish"
+          source: "publish"
+          target: "/var/www/strova"
           rm: false
 
       - name: Crear appsettings y reiniciar servicio
@@ -40,6 +42,11 @@ jobs:
           key: ${{ secrets.VPS_KEY }}
           port: 22
           script: |
+            if [ -d /var/www/strova/publish/publish ] && [ -f /var/www/strova/publish/publish/APICore.API.dll ]; then
+              shopt -s dotglob nullglob
+              mv /var/www/strova/publish/publish/* /var/www/strova/publish/
+              rmdir /var/www/strova/publish/publish 2>/dev/null || true
+            fi
             cat > /var/www/strova/publish/appsettings.json << 'EOF'
             {
               "Logging": {
