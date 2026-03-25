@@ -234,6 +234,7 @@ namespace APICore.Services.Impls
 
         public async Task<SalesReportResponse> GetSalesReportAsync(DateTime? dateFrom, DateTime? dateTo, int? locationId, int page = 1, int pageSize = 50)
         {
+            // IMPORTANT: evitar operaciones EF en paralelo sobre el mismo DbContext.
             if (pageSize > 100)
                 pageSize = 100;
             if (page < 1)
@@ -248,7 +249,6 @@ namespace APICore.Services.Impls
 
             if (locationId.HasValue)
                 ordersQuery = ordersQuery.Where(o => o.LocationId == locationId.Value);
-
             if (from.HasValue)
                 ordersQuery = ordersQuery.Where(o => o.CreatedAt >= from.Value);
             if (toExclusive.HasValue)
@@ -261,30 +261,27 @@ namespace APICore.Services.Impls
 
             if (locationId.HasValue)
                 returnsQuery = returnsQuery.Where(r => r.LocationId == locationId.Value);
-
             if (from.HasValue)
                 returnsQuery = returnsQuery.Where(r => r.CreatedAt >= from.Value);
             if (toExclusive.HasValue)
                 returnsQuery = returnsQuery.Where(r => r.CreatedAt < toExclusive.Value);
 
-            var totalOrdersTask = ordersQuery.LongCountAsync();
-            var totalSalesTask = ordersQuery.SumAsync(o => (decimal?)o.Total);
-
-            var salesByDayTask = ordersQuery
+            // Agregados: ejecutar secuencialmente para no romper DbContext.
+            var totalOrdersCount = (int)(await ordersQuery.LongCountAsync());
+            var totalSales = (await ordersQuery.SumAsync(o => (decimal?)o.Total)) ?? 0m;
+            var salesByDayRows = await ordersQuery
                 .GroupBy(o => new { o.CreatedAt.Year, o.CreatedAt.Month, o.CreatedAt.Day })
                 .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Total = g.Sum(x => x.Total) })
                 .ToListAsync();
 
-            var totalReturnsTask = returnsQuery.SumAsync(r => (decimal?)r.Total);
-
-            var returnsByDayTask = returnsQuery
+            var totalReturns = (await returnsQuery.SumAsync(r => (decimal?)r.Total)) ?? 0m;
+            var returnsByDayRows = await returnsQuery
                 .GroupBy(r => new { r.CreatedAt.Year, r.CreatedAt.Month, r.CreatedAt.Day })
                 .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Total = g.Sum(x => x.Total) })
                 .ToListAsync();
 
             var ordersListQuery = BuildConfirmedSaleOrdersDetailedQuery(dateFrom, dateTo, locationId);
-
-            var ordersListTask = ordersListQuery
+            var ordersListRows = await ordersListQuery
                 .OrderByDescending(o => o.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -305,9 +302,7 @@ namespace APICore.Services.Impls
                 })
                 .ToListAsync();
 
-            await Task.WhenAll(totalOrdersTask, totalSalesTask, salesByDayTask, totalReturnsTask, returnsByDayTask, ordersListTask);
-
-            var salesByDay = salesByDayTask.Result
+            var salesByDay = salesByDayRows
                 .Select(x => new SalesByDayDto
                 {
                     Date = new DateTime(x.Year, x.Month, x.Day),
@@ -316,7 +311,7 @@ namespace APICore.Services.Impls
                 .OrderBy(x => x.Date)
                 .ToList();
 
-            var returnsByDay = returnsByDayTask.Result
+            var returnsByDay = returnsByDayRows
                 .Select(x => new ReturnsByDayDto
                 {
                     Date = new DateTime(x.Year, x.Month, x.Day),
@@ -325,7 +320,7 @@ namespace APICore.Services.Impls
                 .OrderBy(x => x.Date)
                 .ToList();
 
-            var orders = ordersListTask.Result
+            var orders = ordersListRows
                 .Select(o => new SalesOrderRowDto
                 {
                     Id = o.Id,
@@ -343,17 +338,15 @@ namespace APICore.Services.Impls
                 })
                 .ToList();
 
-            var totalOrdersCount = (int)totalOrdersTask.Result;
-            var totalSales = totalSalesTask.Result ?? 0m;
             var averageTicket = totalOrdersCount > 0
                 ? totalSales / totalOrdersCount
                 : 0m;
 
-            var response = new SalesReportResponse
+            return new SalesReportResponse
             {
                 TotalSales = totalSales,
-                TotalReturns = totalReturnsTask.Result ?? 0m,
-                NetSales = totalSales - (totalReturnsTask.Result ?? 0m),
+                TotalReturns = totalReturns,
+                NetSales = totalSales - totalReturns,
                 TotalOrders = totalOrdersCount,
                 AverageTicket = averageTicket,
                 Page = page,
@@ -363,30 +356,27 @@ namespace APICore.Services.Impls
                 ReturnsByDay = returnsByDay,
                 Orders = orders
             };
-
-            return response;
         }
 
         public async Task<InventoryReportResponse> GetInventoryReportAsync(DateTime? dateFrom, DateTime? dateTo, int? locationId)
         {
+            // IMPORTANT: evitar operaciones EF en paralelo sobre el mismo DbContext.
             var minStock = _inventorySettings.DefaultMinimumStock;
 
-            // Stock actual (no dependemos del rango de fechas).
+            // Stock actual (sin depender del rango de fechas).
             var inventoryWithProductQuery = _uow.InventoryRepository
                 .GetAllIncluding(i => i.Product)
                 .AsNoTracking();
 
             var inventoryQuery = inventoryWithProductQuery;
-
             if (locationId.HasValue)
                 inventoryQuery = inventoryQuery.Where(i => i.LocationId == locationId.Value);
 
-            var totalStockTask = inventoryQuery.SumAsync(i => (decimal?)i.CurrentStock);
+            var totalStock = (await inventoryQuery.SumAsync(i => (decimal?)i.CurrentStock)) ?? 0m;
+            var inventoryValue = (await inventoryQuery
+                .SumAsync(i => (decimal?)(i.CurrentStock * (i.Product != null ? i.Product.Costo : 0)))) ?? 0m;
 
-            var inventoryValueTask = inventoryQuery
-                .SumAsync(i => (decimal?)(i.CurrentStock * (i.Product != null ? i.Product.Costo : 0)));
-
-            var stockByProductTask = inventoryQuery
+            var stockByProductRows = await inventoryQuery
                 .GroupBy(inv => new
                 {
                     inv.ProductId,
@@ -404,7 +394,7 @@ namespace APICore.Services.Impls
                 .Take(50)
                 .ToListAsync();
 
-            var lowStockProductsTask = inventoryQuery
+            var lowStockProductsRows = await inventoryQuery
                 .GroupBy(inv => new
                 {
                     inv.ProductId,
@@ -427,13 +417,17 @@ namespace APICore.Services.Impls
             var (from, toExclusive) = NormalizeDateRange(dateFrom, dateTo);
 
             var movementQuery = _uow.InventoryMovementRepository.GetAll().AsNoTracking();
-
             if (locationId.HasValue)
                 movementQuery = movementQuery.Where(m => m.LocationId == locationId.Value);
             if (from.HasValue)
                 movementQuery = movementQuery.Where(m => m.CreatedAt >= from.Value);
             if (toExclusive.HasValue)
                 movementQuery = movementQuery.Where(m => m.CreatedAt < toExclusive.Value);
+
+            var totalMovements = await movementQuery.LongCountAsync();
+            var entries = await movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.entry);
+            var exits = await movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.exit);
+            var adjustments = await movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.adjustment);
 
             var movementDetailQuery = _uow.InventoryMovementRepository
                 .GetAllIncluding(m => m.Product, m => m.Supplier)
@@ -446,7 +440,7 @@ namespace APICore.Services.Impls
             if (toExclusive.HasValue)
                 movementDetailQuery = movementDetailQuery.Where(m => m.CreatedAt < toExclusive.Value);
 
-            var movementDetailsTask = movementDetailQuery
+            var movementDetails = await movementDetailQuery
                 .OrderByDescending(m => m.CreatedAt)
                 .Take(100)
                 .Select(m => new InventoryMovementRowDto
@@ -466,17 +460,10 @@ namespace APICore.Services.Impls
                 })
                 .ToListAsync();
 
-            var totalMovementsTask = movementQuery.LongCountAsync();
-            var entriesTask = movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.entry);
-            var exitsTask = movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.exit);
-            var adjustmentsTask = movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.adjustment);
-
-            await Task.WhenAll(totalStockTask, inventoryValueTask, stockByProductTask, lowStockProductsTask, totalMovementsTask, entriesTask, exitsTask, adjustmentsTask, movementDetailsTask);
-
             return new InventoryReportResponse
             {
-                TotalStock = totalStockTask.Result ?? 0m,
-                LowStockProducts = lowStockProductsTask.Result
+                TotalStock = totalStock,
+                LowStockProducts = lowStockProductsRows
                     .Select(x => new LowStockProductDto
                     {
                         ProductId = x.ProductId,
@@ -484,8 +471,8 @@ namespace APICore.Services.Impls
                         ProductName = x.ProductName,
                         TotalStock = x.TotalStock
                     }).ToList(),
-                InventoryValue = inventoryValueTask.Result ?? 0m,
-                StockByProduct = stockByProductTask.Result
+                InventoryValue = inventoryValue,
+                StockByProduct = stockByProductRows
                     .Select(x => new StockByProductDto
                     {
                         ProductId = x.ProductId,
@@ -495,23 +482,23 @@ namespace APICore.Services.Impls
                     }).ToList(),
                 MovementsSummary = new MovementsSummaryDto
                 {
-                    TotalMovements = totalMovementsTask.Result,
-                    Entries = entriesTask.Result,
-                    Exits = exitsTask.Result,
-                    Adjustments = adjustmentsTask.Result
+                    TotalMovements = totalMovements,
+                    Entries = entries,
+                    Exits = exits,
+                    Adjustments = adjustments
                 },
-                MovementDetails = movementDetailsTask.Result
+                MovementDetails = movementDetails
             };
         }
 
         public async Task<ProductsReportResponse> GetProductsReportAsync(DateTime? dateFrom, DateTime? dateTo, int? locationId)
         {
+            // IMPORTANT: evitar operaciones EF en paralelo sobre el mismo DbContext.
             var (from, toExclusive) = NormalizeDateRange(dateFrom, dateTo);
 
             var productsQuery = _uow.ProductRepository.GetAll().AsNoTracking();
-
-            var totalProductsTask = productsQuery.LongCountAsync();
-            var activeProductsTask = productsQuery.LongCountAsync(p => p.IsAvailable && p.IsForSale);
+            var totalProducts = await productsQuery.LongCountAsync();
+            var activeProducts = await productsQuery.LongCountAsync(p => p.IsAvailable && p.IsForSale);
 
             var soldItemsQuery = _uow.SaleOrderItemRepository
                 .GetAllIncluding(i => i.Product, i => i.SaleOrder)
@@ -525,7 +512,7 @@ namespace APICore.Services.Impls
             if (toExclusive.HasValue)
                 soldItemsQuery = soldItemsQuery.Where(i => i.SaleOrder!.CreatedAt < toExclusive.Value);
 
-            var topSellingTask = soldItemsQuery
+            var topSellingRows = await soldItemsQuery
                 .GroupBy(i => new
                 {
                     i.ProductId,
@@ -559,16 +546,18 @@ namespace APICore.Services.Impls
             if (toExclusive.HasValue)
                 returnedItemsQuery = returnedItemsQuery.Where(i => i.SaleReturn!.CreatedAt < toExclusive.Value);
 
-            var returnedByProductTask = returnedItemsQuery
+            var returnedByProductRows = await returnedItemsQuery
                 .GroupBy(i => i.ProductId)
                 .Select(g => new { ProductId = g.Key, TotalReturned = g.Sum(x => x.Quantity) })
                 .ToListAsync();
+
+            var returnedDict = returnedByProductRows.ToDictionary(x => x.ProductId, x => x.TotalReturned);
 
             var productsWithCategoryQuery = _uow.ProductRepository
                 .GetAllIncluding(p => p.Category)
                 .AsNoTracking();
 
-            var categoryDistributionTask = productsWithCategoryQuery
+            var categoryDistributionRows = await productsWithCategoryQuery
                 .Where(p => p.Category != null)
                 .GroupBy(p => new { CategoryId = p.CategoryId, CategoryName = p.Category!.Name })
                 .Select(g => new
@@ -582,16 +571,11 @@ namespace APICore.Services.Impls
                 .Take(20)
                 .ToListAsync();
 
-            await Task.WhenAll(totalProductsTask, activeProductsTask, topSellingTask, categoryDistributionTask, returnedByProductTask);
-
-            var returnedDict = returnedByProductTask.Result
-                .ToDictionary(x => x.ProductId, x => x.TotalReturned);
-
             return new ProductsReportResponse
             {
-                TotalProducts = totalProductsTask.Result,
-                ActiveProducts = activeProductsTask.Result,
-                TopSellingProducts = topSellingTask.Result.Select(x => new TopSellingProductDto
+                TotalProducts = totalProducts,
+                ActiveProducts = activeProducts,
+                TopSellingProducts = topSellingRows.Select(x => new TopSellingProductDto
                 {
                     ProductId = x.ProductId,
                     ProductCode = x.ProductCode,
@@ -602,7 +586,7 @@ namespace APICore.Services.Impls
                     AveragePrice = x.AveragePrice,
                     TotalReturned = returnedDict.TryGetValue(x.ProductId, out var ret) ? ret : 0m
                 }).ToList(),
-                CategoryDistribution = categoryDistributionTask.Result.Select(x => new CategoryDistributionDto
+                CategoryDistribution = categoryDistributionRows.Select(x => new CategoryDistributionDto
                 {
                     CategoryId = x.CategoryId,
                     CategoryName = x.CategoryName,
@@ -613,6 +597,7 @@ namespace APICore.Services.Impls
 
         public async Task<CrmReportResponse> GetCrmReportAsync(DateTime? dateFrom, DateTime? dateTo, int? locationId)
         {
+            // IMPORTANT: evitar operaciones EF en paralelo sobre el mismo DbContext.
             var (from, toExclusive) = NormalizeDateRange(dateFrom, dateTo);
 
             // Nota: los Leads/Contacts dependen del tenant por OrganizationId.
@@ -626,8 +611,9 @@ namespace APICore.Services.Impls
             if (toExclusive.HasValue)
                 leadsQuery = leadsQuery.Where(l => l.CreatedAt < toExclusive.Value);
 
-            var totalLeadsTask = leadsQuery.LongCountAsync();
-            var convertedLeadsTask = leadsQuery.LongCountAsync(l => l.ConvertedToContactId.HasValue);
+            var totalLeads = await leadsQuery.LongCountAsync();
+            var convertedLeads = await leadsQuery.LongCountAsync(l => l.ConvertedToContactId.HasValue);
+            var conversionRate = totalLeads > 0 ? (decimal)convertedLeads / totalLeads : 0m;
 
             var leadsListQuery = leadsWithContactQuery;
             if (from.HasValue)
@@ -635,7 +621,7 @@ namespace APICore.Services.Impls
             if (toExclusive.HasValue)
                 leadsListQuery = leadsListQuery.Where(l => l.CreatedAt < toExclusive.Value);
 
-            var leadsListTask = leadsListQuery
+            var leadsListRows = await leadsListQuery
                 .OrderByDescending(l => l.CreatedAt)
                 .Take(50)
                 .Select(l => new
@@ -651,18 +637,12 @@ namespace APICore.Services.Impls
                 })
                 .ToListAsync();
 
-            await Task.WhenAll(totalLeadsTask, convertedLeadsTask, leadsListTask);
-
-            var totalLeads = totalLeadsTask.Result;
-            var convertedLeads = convertedLeadsTask.Result;
-            var conversionRate = totalLeads > 0 ? (decimal)convertedLeads / totalLeads : 0m;
-
             return new CrmReportResponse
             {
                 TotalLeads = totalLeads,
                 ConvertedLeads = convertedLeads,
                 ConversionRate = conversionRate,
-                Leads = leadsListTask.Result.Select(x => new LeadRowDto
+                Leads = leadsListRows.Select(x => new LeadRowDto
                 {
                     LeadId = x.LeadId,
                     Name = x.Name,
@@ -678,10 +658,10 @@ namespace APICore.Services.Impls
 
         public async Task<OperationsReportResponse> GetOperationsReportAsync(DateTime? dateFrom, DateTime? dateTo, int? locationId)
         {
+            // IMPORTANT: evitar operaciones EF en paralelo sobre el mismo DbContext.
             var (from, toExclusive) = NormalizeDateRange(dateFrom, dateTo);
 
             var movementQuery = _uow.InventoryMovementRepository.GetAll().AsNoTracking();
-
             if (locationId.HasValue)
                 movementQuery = movementQuery.Where(m => m.LocationId == locationId.Value);
             if (from.HasValue)
@@ -689,12 +669,12 @@ namespace APICore.Services.Impls
             if (toExclusive.HasValue)
                 movementQuery = movementQuery.Where(m => m.CreatedAt < toExclusive.Value);
 
-            var totalMovementsTask = movementQuery.LongCountAsync();
-            var entriesTask = movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.entry);
-            var exitsTask = movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.exit);
-            var adjustmentsTask = movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.adjustment);
+            var totalMovements = await movementQuery.LongCountAsync();
+            var entries = await movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.entry);
+            var exits = await movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.exit);
+            var adjustments = await movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.adjustment);
 
-            var movementsByTypeTask = movementQuery
+            var movementsByTypeRows = await movementQuery
                 .GroupBy(m => m.Type)
                 .Select(g => new
                 {
@@ -715,7 +695,7 @@ namespace APICore.Services.Impls
             if (toExclusive.HasValue)
                 movementDetailQuery2 = movementDetailQuery2.Where(m => m.CreatedAt < toExclusive.Value);
 
-            var movementDetailListTask = movementDetailQuery2
+            var movementDetailList = await movementDetailQuery2
                 .OrderByDescending(m => m.CreatedAt)
                 .Take(200)
                 .Select(m => new OperationsMovementRowDto
@@ -735,9 +715,6 @@ namespace APICore.Services.Impls
                 })
                 .ToListAsync();
 
-            await Task.WhenAll(totalMovementsTask, entriesTask, exitsTask, adjustmentsTask, movementsByTypeTask, movementDetailListTask);
-
-            var movementDetailList = movementDetailListTask.Result;
             var entryTypeName = InventoryMovementType.entry.ToString();
             var supplierSummary = movementDetailList
                 .Where(m => m.SupplierId.HasValue && m.Type == entryTypeName)
@@ -754,11 +731,11 @@ namespace APICore.Services.Impls
 
             return new OperationsReportResponse
             {
-                TotalMovements = totalMovementsTask.Result,
-                Entries = entriesTask.Result,
-                Exits = exitsTask.Result,
-                Adjustments = adjustmentsTask.Result,
-                MovementsByType = movementsByTypeTask.Result.Select(x => new MovementsByTypeDto
+                TotalMovements = totalMovements,
+                Entries = entries,
+                Exits = exits,
+                Adjustments = adjustments,
+                MovementsByType = movementsByTypeRows.Select(x => new MovementsByTypeDto
                 {
                     Type = x.Type.ToString(),
                     Count = x.Count,
