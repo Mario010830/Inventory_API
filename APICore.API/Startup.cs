@@ -54,8 +54,7 @@ namespace APICore.API
             services.ConfigureHsts();
 
             services.ConfigureDbContext(Configuration);
-            // Swagger desactivado (descomentar servicios.ConfigureSwagger() y el bloque UseSwagger* en Configure).
-            // services.ConfigureSwagger();
+            services.ConfigureSwagger();
             services.ConfigureTokenAuth(Configuration);
             services.ConfigurePerformance();
 
@@ -119,11 +118,11 @@ namespace APICore.API
                 app.UseHsts();
             }
 
-            // app.UseSwagger();
-            // app.UseSwaggerUI(c =>
-            // {
-            //     c.SwaggerEndpoint("/swagger/v1/swagger.json", "API Core V1");
-            // });
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "API Core V1");
+            });
 
             #region Localization
 

@@ -10,10 +10,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using Microsoft.IdentityModel.Tokens;
-// Swagger (Swashbuckle) desactivado — descomentar junto con ConfigureSwagger en Startup.
-// using APICore.API.Swagger;
-// using Microsoft.OpenApi;
-// using Microsoft.OpenApi.Models;
+// Swagger (Swashbuckle)
+using APICore.API.Swagger;
+using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 using System;
 using System.Globalization;
 using System.IO;
@@ -37,7 +37,6 @@ namespace APICore.API
             );
         }
 
-        /*
         public static void ConfigureSwagger(this IServiceCollection services)
         {
             services.AddSwaggerGen(options =>
@@ -79,7 +78,6 @@ namespace APICore.API
                 options.OperationFilter<FileUploadOperationFilter>();
             });
         }
-        */
 
         public static void ConfigureTokenAuth(this IServiceCollection services, IConfiguration config)
         {
