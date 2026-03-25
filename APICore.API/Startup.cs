@@ -98,6 +98,7 @@ namespace APICore.API
             services.AddTransient<ISubscriptionQuotaService, SubscriptionQuotaService>();
             services.AddTransient<ICurrencyService, CurrencyService>();
             services.AddTransient<IBusinessCategoryService, BusinessCategoryService>();
+            services.AddTransient<IReportsService, ReportsService>();
 
             services.AddScoped<ICurrentUserContextAccessor, CurrentUserContextAccessor>();
             services.AddScoped<ICurrentUserContextProvider, CurrentUserContextProvider>();
