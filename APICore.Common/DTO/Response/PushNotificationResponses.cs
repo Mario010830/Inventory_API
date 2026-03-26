@@ -12,5 +12,6 @@ namespace APICore.Common.DTO.Response
         public int Sent { get; set; }
         public int Failed { get; set; }
         public int Deactivated { get; set; }
+        public string? Error { get; set; }
     }
 }

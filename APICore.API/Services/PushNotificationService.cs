@@ -84,7 +84,8 @@ namespace APICore.API.Services
                 TotalSubscriptions = subscriptions.Count,
                 Sent = 0,
                 Failed = 0,
-                Deactivated = 0
+                Deactivated = 0,
+                Error = null
             };
 
             if (subscriptions.Count == 0)
@@ -97,6 +98,7 @@ namespace APICore.API.Services
             {
                 _logger.LogWarning("Push VAPID keys are not configured.");
                 result.Failed = result.TotalSubscriptions;
+                result.Error = "VAPID keys are not configured.";
                 return result;
             }
 
@@ -124,11 +126,21 @@ namespace APICore.API.Services
                     _context.WebPushSubscriptions.Update(sub);
                     result.Failed++;
                     result.Deactivated++;
+                    result.Error ??= $"WebPush {(int)ex.StatusCode} {ex.StatusCode}";
+                }
+                catch (WebPushException ex)
+                {
+                    _logger.LogWarning(ex,
+                        "WebPush failed for location {LocationId} with status {StatusCode}",
+                        request.LocationId, (int)ex.StatusCode);
+                    result.Failed++;
+                    result.Error ??= $"WebPush {(int)ex.StatusCode} {ex.StatusCode}";
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed sending push notification to location {LocationId}", request.LocationId);
                     result.Failed++;
+                    result.Error ??= ex.Message;
                 }
             }
 

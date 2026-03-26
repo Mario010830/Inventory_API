@@ -84,7 +84,8 @@ namespace APICore.API.Services
                         TotalSubscriptions = response.TotalSubscriptions,
                         Sent = response.Sent,
                         Failed = response.Failed,
-                        Deactivated = response.Deactivated
+                        Deactivated = response.Deactivated,
+                        Error = response.Error
                     });
 
                     if (response.Failed > 0)
