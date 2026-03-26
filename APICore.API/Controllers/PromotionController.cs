@@ -95,5 +95,14 @@ namespace APICore.API.Controllers
                 await _promotionPushService.NotifyPromotionActivatedAsync(id);
             return NoContent();
         }
+
+        [HttpDelete]
+        [RequirePermission(PermissionCodes.ProductDelete)]
+        [ProducesResponseType((int)HttpStatusCode.NoContent)]
+        public async Task<IActionResult> DeletePromotion(int id)
+        {
+            await _promotionService.DeletePromotion(id);
+            return NoContent();
+        }
     }
 }

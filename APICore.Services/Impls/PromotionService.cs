@@ -92,6 +92,22 @@ namespace APICore.Services.Impls
             await _uow.CommitAsync();
         }
 
+        public async Task DeletePromotion(int id)
+        {
+            var promotion = await _uow.PromotionRepository.FirstOrDefaultAsync(p => p.Id == id);
+            if (promotion == null)
+                throw new BaseNotFoundException("Promocion no encontrada.");
+
+            var isUsedInSales = await _context.SaleOrderItems
+                .IgnoreQueryFilters()
+                .AnyAsync(i => i.PromotionId == id);
+            if (isUsedInSales)
+                throw new BaseBadRequestException("No se puede eliminar una promocion ya utilizada en ventas.");
+
+            _uow.PromotionRepository.Delete(promotion);
+            await _uow.CommitAsync();
+        }
+
         public async Task<Promotion> GetPromotion(int id)
         {
             var promotion = await _uow.PromotionRepository.FirstOrDefaultAsync(p => p.Id == id);

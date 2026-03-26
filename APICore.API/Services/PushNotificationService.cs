@@ -109,7 +109,12 @@ namespace APICore.API.Services
                 title = request.Title,
                 body = request.Body,
                 url = request.Url,
-                locationId = request.LocationId
+                locationId = request.LocationId,
+                image = !string.IsNullOrWhiteSpace(request.Image) ? request.Image : request.ImageUrl,
+                imageUrl = !string.IsNullOrWhiteSpace(request.ImageUrl) ? request.ImageUrl : request.Image,
+                tag = request.Tag,
+                icon = request.Icon,
+                badge = request.Badge
             });
 
             foreach (var sub in subscriptions)

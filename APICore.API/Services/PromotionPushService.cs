@@ -71,7 +71,11 @@ namespace APICore.API.Services
                         LocationId = locationId,
                         Title = "Nueva promocion disponible",
                         Body = $"{product.Name}: {promoLabel}",
-                        Url = $"/store?locationId={locationId}&productId={product.Id}"
+                        Url = $"/store?locationId={locationId}&productId={product.Id}",
+                        Tag = $"promo-location-{locationId}",
+                        Image = product.ImagenUrl,
+                        Icon = "/images/icon-192x192.png",
+                        Badge = "/images/icon-72x72.png"
                     };
 
                     var response = await _pushNotificationService.SendToLocationAsync(payload);

@@ -10,6 +10,7 @@ namespace APICore.Services
         Task<Promotion> CreatePromotion(CreatePromotionRequest request);
         Task UpdatePromotion(int id, UpdatePromotionRequest request);
         Task TogglePromotion(int id, bool isActive);
+        Task DeletePromotion(int id);
         Task<Promotion> GetPromotion(int id);
         Task<Promotion?> GetActivePromotionForProduct(int productId, decimal quantity, int organizationId);
         Task<PaginatedList<Promotion>> GetPromotions(int? page, int? perPage, int? productId, bool? activeOnly);
