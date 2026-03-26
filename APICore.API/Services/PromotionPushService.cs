@@ -29,52 +29,70 @@ namespace APICore.API.Services
         }
 
         /// <summary>
-        /// If <paramref name="pathOrUrl"/> is already absolute, returns it; otherwise joins with <paramref name="baseUrl"/> (PWA/API public base).
+        /// Joins root-relative paths (<c>/store?...</c>, <c>/images/...</c>) with <paramref name="baseUrl"/>.
+        /// Leaves <c>http(s)://...</c> unchanged. Root-relative must not use <see cref="UriKind.Absolute"/> alone — on Linux, <c>/store</c> parses as a file URI and would skip the base.
         /// </summary>
         private static string? ToAbsoluteUrl(string? baseUrl, string? pathOrUrl)
         {
             if (string.IsNullOrWhiteSpace(pathOrUrl))
                 return pathOrUrl;
-            if (Uri.TryCreate(pathOrUrl, UriKind.Absolute, out _))
+
+            var s = pathOrUrl.Trim();
+            // Root-relative: always prefix with public base (notifications / PWA).
+            if (s.StartsWith('/') && !s.StartsWith("//", StringComparison.Ordinal))
+            {
+                var b = (baseUrl ?? "").TrimEnd('/');
+                return string.IsNullOrEmpty(b) ? pathOrUrl : $"{b}{s}";
+            }
+
+            if (Uri.TryCreate(s, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+                return s;
+
+            var b2 = (baseUrl ?? "").TrimEnd('/');
+            if (string.IsNullOrEmpty(b2))
                 return pathOrUrl;
-            var b = (baseUrl ?? "").TrimEnd('/');
-            if (string.IsNullOrEmpty(b))
-                return pathOrUrl;
-            return $"{b}/{pathOrUrl.TrimStart('/')}";
+            return $"{b2}/{s.TrimStart('/')}";
         }
 
         /// <summary>
-        /// Resolves the product image to an HTTPS URL for Web Push (e.g. Vercel proxy). Uses
-        /// <c>PushNotifications:PushImageProxyUrlTemplate</c> with <c>{url}</c> (full source URL, encoded) or <c>{path}</c> (PathAndQuery only, encoded).
-        /// If the template is empty, returns the absolute URL from LocalStorage (legacy HTTP API URL).
+        /// Push notification image via Next frontend: <c>{PublicStoreBaseUrl}/api/image?path={encodeURIComponent(/uploads/...)}</c>.
         /// </summary>
-        private string? BuildPushProductImageUrl(string? apiBase, string? imagenUrl)
+        private string? BuildPushProductImageUrl(string? frontendBase, string? apiBase, string? imagenUrl)
         {
             var sourceAbsolute = ToAbsoluteUrl(apiBase, imagenUrl);
             if (string.IsNullOrWhiteSpace(sourceAbsolute))
                 return null;
 
-            var template = _configuration["PushNotifications:PushImageProxyUrlTemplate"]?.Trim();
-            if (string.IsNullOrEmpty(template))
-                return sourceAbsolute;
-
-            const string urlToken = "{url}";
-            const string pathToken = "{path}";
-
-            if (template.Contains(pathToken, StringComparison.Ordinal))
+            if (string.IsNullOrEmpty(frontendBase))
             {
-                if (!Uri.TryCreate(sourceAbsolute, UriKind.Absolute, out var srcUri))
-                    return sourceAbsolute;
-                var pathAndQuery = string.IsNullOrEmpty(srcUri.PathAndQuery) ? "/" : srcUri.PathAndQuery;
-                return template.Replace(pathToken, Uri.EscapeDataString(pathAndQuery), StringComparison.Ordinal);
+                _logger.LogWarning("Push image: PublicStoreBaseUrl is missing; using backend image URL.");
+                return sourceAbsolute;
             }
 
-            if (template.Contains(urlToken, StringComparison.Ordinal))
-                return template.Replace(urlToken, Uri.EscapeDataString(sourceAbsolute), StringComparison.Ordinal);
+            const string uploadsMarker = "/uploads/";
+            var idx = sourceAbsolute.IndexOf(uploadsMarker, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+            {
+                _logger.LogWarning(
+                    "Push image: backend URL has no {Marker} segment, using raw URL: {Url}",
+                    uploadsMarker,
+                    sourceAbsolute);
+                return sourceAbsolute;
+            }
 
-            _logger.LogWarning(
-                "PushImageProxyUrlTemplate is set but has no {{url}} or {{path}} placeholder; using raw image URL.");
-            return sourceAbsolute;
+            var path = sourceAbsolute.Substring(idx);
+            var encoded = Uri.EscapeDataString(path);
+            return $"{frontendBase}/api/image?path={encoded}";
+        }
+
+        /// <summary>
+        /// Frontend base URL (Vercel / Next), e.g. <c>PushNotifications:PublicStoreBaseUrl</c>.
+        /// </summary>
+        private string? ResolvePublicStoreBaseUrl()
+        {
+            var configured = _configuration["PushNotifications:PublicStoreBaseUrl"]?.Trim();
+            return string.IsNullOrEmpty(configured) ? null : configured.TrimEnd('/');
         }
 
         public async Task<PromotionPushDispatchResult> NotifyPromotionActivatedAsync(int promotionId)
@@ -111,7 +129,7 @@ namespace APICore.API.Services
 
             dispatch.PushAttempted = true;
 
-            var storeBase = _configuration["PushNotifications:PublicStoreBaseUrl"];
+            var storeBase = ResolvePublicStoreBaseUrl();
             var apiBase = _configuration["LocalStorage:BaseUrl"];
 
             var promoLabel = promotion.Type.ToString() == "percentage"
@@ -123,7 +141,7 @@ namespace APICore.API.Services
                 try
                 {
                     var relativeStorePath = $"/store?locationId={locationId}&productId={product.Id}";
-                    var pushImage = BuildPushProductImageUrl(apiBase, product.ImagenUrl);
+                    var pushImage = BuildPushProductImageUrl(storeBase, apiBase, product.ImagenUrl);
                     var payload = new PushSendRequest
                     {
                         LocationId = locationId,
