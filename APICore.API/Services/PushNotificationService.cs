@@ -110,6 +110,7 @@ namespace APICore.API.Services
                 body = request.Body,
                 url = request.Url,
                 locationId = request.LocationId,
+                storeName = request.StoreName,
                 image = !string.IsNullOrWhiteSpace(request.Image) ? request.Image : request.ImageUrl,
                 imageUrl = !string.IsNullOrWhiteSpace(request.ImageUrl) ? request.ImageUrl : request.Image,
                 tag = request.Tag,

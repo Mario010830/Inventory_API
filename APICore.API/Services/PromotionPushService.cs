@@ -56,9 +56,9 @@ namespace APICore.API.Services
         }
 
         /// <summary>
-        /// Push notification image via Next frontend: <c>{PublicStoreBaseUrl}/api/image?path={encodeURIComponent(/uploads/...)}</c>.
+        /// Product or location image via Next: <c>{PublicStoreBaseUrl}/api/image?path={encodeURIComponent(/uploads/...)}</c>.
         /// </summary>
-        private string? BuildPushProductImageUrl(string? frontendBase, string? apiBase, string? imagenUrl)
+        private string? BuildFrontendProxiedImageUrl(string? frontendBase, string? apiBase, string? imagenUrl)
         {
             var sourceAbsolute = ToAbsoluteUrl(apiBase, imagenUrl);
             if (string.IsNullOrWhiteSpace(sourceAbsolute))
@@ -117,14 +117,13 @@ namespace APICore.API.Services
             if (product == null)
                 return dispatch;
 
-            var locationIds = await _context.Locations
+            var locations = await _context.Locations
                 .IgnoreQueryFilters()
                 .Where(l => l.OrganizationId == promotion.OrganizationId)
-                .Select(l => l.Id)
                 .ToListAsync();
 
-            dispatch.ResolvedLocationsCount = locationIds.Count;
-            if (locationIds.Count == 0)
+            dispatch.ResolvedLocationsCount = locations.Count;
+            if (locations.Count == 0)
                 return dispatch;
 
             dispatch.PushAttempted = true;
@@ -136,23 +135,33 @@ namespace APICore.API.Services
                 ? $"{promotion.Value:0.##}% OFF"
                 : $"Oferta {promotion.Value:0.##}";
 
-            foreach (var locationId in locationIds)
+            foreach (var location in locations)
             {
+                var locationId = location.Id;
                 try
                 {
+                    var storeDisplayName = !string.IsNullOrWhiteSpace(location.Name)
+                        ? location.Name.Trim()
+                        : (!string.IsNullOrWhiteSpace(location.Code) ? location.Code.Trim() : "Tienda");
+
                     var relativeStorePath = $"/store?locationId={locationId}&productId={product.Id}";
-                    var pushImage = BuildPushProductImageUrl(storeBase, apiBase, product.ImagenUrl);
+                    var pushImage = BuildFrontendProxiedImageUrl(storeBase, apiBase, product.ImagenUrl);
+                    var storeIcon = BuildFrontendProxiedImageUrl(storeBase, apiBase, location.PhotoUrl);
+                    var defaultIcon = ToAbsoluteUrl(storeBase, "/images/icon-192x192.png");
+                    var defaultBadge = ToAbsoluteUrl(storeBase, "/images/icon-72x72.png");
+
                     var payload = new PushSendRequest
                     {
                         LocationId = locationId,
-                        Title = "Nueva promocion disponible",
+                        StoreName = storeDisplayName,
+                        Title = $"Nueva promocion — {storeDisplayName}",
                         Body = $"{product.Name}: {promoLabel}",
                         Url = ToAbsoluteUrl(storeBase, relativeStorePath) ?? relativeStorePath,
                         Tag = $"promo-location-{locationId}",
                         Image = pushImage,
                         ImageUrl = pushImage,
-                        Icon = ToAbsoluteUrl(storeBase, "/images/icon-192x192.png"),
-                        Badge = ToAbsoluteUrl(storeBase, "/images/icon-72x72.png")
+                        Icon = !string.IsNullOrWhiteSpace(storeIcon) ? storeIcon : defaultIcon,
+                        Badge = !string.IsNullOrWhiteSpace(storeIcon) ? storeIcon : defaultBadge
                     };
 
                     var response = await _pushNotificationService.SendToLocationAsync(payload);

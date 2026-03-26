@@ -42,5 +42,8 @@ namespace APICore.Common.DTO.Request
         public string? Tag { get; set; }
         public string? Icon { get; set; }
         public string? Badge { get; set; }
+
+        /// <summary>Nombre de la tienda / ubicación (payload para el cliente de notificaciones).</summary>
+        public string? StoreName { get; set; }
     }
 }
