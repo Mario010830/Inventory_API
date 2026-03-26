@@ -33,6 +33,7 @@ namespace APICore.Data.UoW
             SaleReturnRepository ??= new GenericRepository<SaleReturn>(_context);
             SaleReturnItemRepository ??= new GenericRepository<SaleReturnItem>(_context);
             TagRepository ??= new GenericRepository<Tag>(_context);
+            PromotionRepository ??= new GenericRepository<Promotion>(_context);
             PlanRepository ??= new GenericRepository<Plan>(_context);
             SubscriptionRepository ??= new GenericRepository<Subscription>(_context);
             SubscriptionRequestRepository ??= new GenericRepository<SubscriptionRequest>(_context);
@@ -61,6 +62,7 @@ namespace APICore.Data.UoW
         public IGenericRepository<SaleReturn> SaleReturnRepository { get; set; }
         public IGenericRepository<SaleReturnItem> SaleReturnItemRepository { get; set; }
         public IGenericRepository<Tag> TagRepository { get; set; }
+        public IGenericRepository<Promotion> PromotionRepository { get; set; }
         public IGenericRepository<Plan> PlanRepository { get; set; }
         public IGenericRepository<Subscription> SubscriptionRepository { get; set; }
         public IGenericRepository<SubscriptionRequest> SubscriptionRequestRepository { get; set; }

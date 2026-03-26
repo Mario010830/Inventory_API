@@ -59,6 +59,12 @@ namespace APICore.API.Utils
                 .ForMember(d => d.ModifiedAt, opts => opts.Ignore())
                 .ForMember(d => d.Products, opts => opts.Ignore());
             CreateMap<ProductImage, ProductImageResponse>();
+            CreateMap<Promotion, PromotionResponse>()
+                .ForMember(d => d.PromotionType, opts => opts.MapFrom(s => s.Type.ToString()))
+                .ForMember(d => d.IsCurrentlyValid, opts => opts.MapFrom(s =>
+                    s.IsActive
+                    && (!s.StartsAt.HasValue || s.StartsAt.Value <= DateTime.UtcNow)
+                    && (!s.EndsAt.HasValue || s.EndsAt.Value >= DateTime.UtcNow)));
             CreateMap<Product, ProductResponse>()
                 .ForMember(d => d.Category, opts => opts.MapFrom(source => source.Category))
                 .ForMember(d => d.Tipo, opts => opts.MapFrom(source => source.Tipo.ToString()))
@@ -91,7 +97,7 @@ namespace APICore.API.Utils
 
             CreateMap<InventoryMovement, InventoryMovementResponse>()
                 .ForMember(d => d.Type, opts => opts.MapFrom(source => source.Type.ToString()))
-                .ForMember(d => d.Cause, opts => opts.MapFrom(source => source.Reason.HasValue ? source.Reason.Value.ToString() : null))
+                .ForMember(d => d.Cause, opts => opts.MapFrom(source => source.Reason))
                 .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null))
                 .ForMember(d => d.LocationName, opts => opts.MapFrom(s => s.Location != null ? s.Location.Name : null));
 
@@ -122,6 +128,7 @@ namespace APICore.API.Utils
 
             CreateMap<SaleOrderItem, SaleOrderItemResponse>()
                 .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null))
+                .ForMember(d => d.OriginalUnitPrice, opts => opts.MapFrom(s => s.OriginalUnitPrice > 0 ? s.OriginalUnitPrice : s.UnitPrice))
                 .ForMember(d => d.GrossMargin, opts => opts.MapFrom(s => (s.UnitPrice - s.UnitCost) * s.Quantity - s.Discount));
 
             CreateMap<SaleReturn, SaleReturnResponse>()

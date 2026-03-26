@@ -29,5 +29,7 @@ namespace APICore.Data.Entities
         public ICollection<ProductTag> ProductTags { get; set; } = new List<ProductTag>();
 
         public ICollection<ProductImage> ProductImages { get; set; } = new List<ProductImage>();
+
+        public ICollection<Promotion> Promotions { get; set; } = new List<Promotion>();
     }
 }

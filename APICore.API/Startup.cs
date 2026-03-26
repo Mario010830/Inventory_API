@@ -93,6 +93,7 @@ namespace APICore.API
             services.AddTransient<ISaleReturnService, SaleReturnService>();
             services.AddTransient<IPublicCatalogService, PublicCatalogService>();
             services.AddTransient<ITagService, TagService>();
+            services.AddTransient<IPromotionService, PromotionService>();
             services.AddTransient<ISubscriptionService, SubscriptionService>();
             services.AddTransient<IPlanService, PlanService>();
             services.AddTransient<ISubscriptionQuotaService, SubscriptionQuotaService>();

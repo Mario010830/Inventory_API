@@ -126,7 +126,7 @@ namespace APICore.Services.Impls
                     ProductId = originalItem.ProductId,
                     LocationId = saleOrder.LocationId,
                     Type = InventoryMovementType.entry,
-                    Reason = InventoryMovementReason.DevolucionCliente,
+                    Reason = InventoryMovementReason.DevolucionCliente.ToString(),
                     Quantity = qtyToReturn,
                     PreviousStock = previousStock,
                     NewStock = newStock,

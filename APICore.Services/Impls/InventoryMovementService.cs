@@ -56,9 +56,7 @@ namespace APICore.Services.Impls
             if (!Enum.IsDefined(typeof(InventoryMovementType), request.Type))
                 throw new InvalidMovementTypeBadRequestException(_localizer);
 
-            InventoryMovementReason? reason = null;
-            if (!string.IsNullOrWhiteSpace(request.Reason) && Enum.TryParse<InventoryMovementReason>(request.Reason, true, out var parsedReason))
-                reason = parsedReason;
+            var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
 
             if (request.SupplierId.HasValue)
             {

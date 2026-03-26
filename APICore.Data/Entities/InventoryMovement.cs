@@ -16,7 +16,7 @@ namespace APICore.Data.Entities
 
         [Required]
         public InventoryMovementType Type { get; set; }
-        public InventoryMovementReason? Reason { get; set; }
+        public string? Reason { get; set; }
         public decimal Quantity { get; set; }
         public decimal? PreviousStock { get; set; }
         public decimal? NewStock { get; set; }

@@ -20,17 +20,20 @@ namespace APICore.Services.Impls
         private readonly CoreDbContext _context;
         private readonly IStringLocalizer<ISaleOrderService> _localizer;
         private readonly IInventorySettings _inventorySettings;
+        private readonly IPromotionService _promotionService;
 
         public SaleOrderService(
             IUnitOfWork uow,
             CoreDbContext context,
             IStringLocalizer<ISaleOrderService> localizer,
-            IInventorySettings inventorySettings)
+            IInventorySettings inventorySettings,
+            IPromotionService promotionService)
         {
             _uow = uow;
             _context = context;
             _localizer = localizer;
             _inventorySettings = inventorySettings;
+            _promotionService = promotionService;
         }
 
         public async Task<SaleOrder> CreateSaleOrder(CreateSaleOrderRequest request, int userId)
@@ -76,7 +79,15 @@ namespace APICore.Services.Impls
                     throw new ProductNotFoundException(_localizer);
 
                 var qty = DecimalRoundingHelper.RoundQuantity(itemReq.Quantity, decimals);
-                var unitPrice = Math.Round(itemReq.UnitPrice ?? product.Precio, priceDecimals);
+                var originalUnitPrice = Math.Round(itemReq.UnitPrice ?? product.Precio, priceDecimals);
+                var promotion = await _promotionService.GetActivePromotionForProduct(itemReq.ProductId, qty, orgId);
+                var unitPrice = originalUnitPrice;
+                if (promotion != null)
+                {
+                    unitPrice = promotion.Type == PromotionType.percentage
+                        ? Math.Round(Math.Max(0, originalUnitPrice - (originalUnitPrice * (promotion.Value / 100m))), priceDecimals)
+                        : Math.Round(Math.Max(0, promotion.Value), priceDecimals);
+                }
                 var unitCost = Math.Round(product.Costo, priceDecimals);
                 var discount = Math.Round(itemReq.Discount, priceDecimals);
                 var lineTotal = Math.Round(qty * unitPrice - discount, priceDecimals);
@@ -86,7 +97,9 @@ namespace APICore.Services.Impls
                     ProductId = itemReq.ProductId,
                     Quantity = qty,
                     UnitPrice = unitPrice,
+                    OriginalUnitPrice = originalUnitPrice,
                     UnitCost = unitCost,
+                    PromotionId = promotion?.Id,
                     Discount = discount,
                     LineTotal = lineTotal,
                 });
@@ -166,7 +179,7 @@ namespace APICore.Services.Impls
                     ProductId = item.ProductId,
                     LocationId = order.LocationId,
                     Type = InventoryMovementType.exit,
-                    Reason = InventoryMovementReason.Venta,
+                    Reason = InventoryMovementReason.Venta.ToString(),
                     Quantity = item.Quantity,
                     PreviousStock = previousStock,
                     NewStock = newStock,
@@ -232,7 +245,7 @@ namespace APICore.Services.Impls
                         ProductId = item.ProductId,
                         LocationId = order.LocationId,
                         Type = InventoryMovementType.entry,
-                        Reason = InventoryMovementReason.Correccion,
+                        Reason = InventoryMovementReason.Correccion.ToString(),
                         Quantity = item.Quantity,
                         PreviousStock = previousStock,
                         NewStock = newStock,

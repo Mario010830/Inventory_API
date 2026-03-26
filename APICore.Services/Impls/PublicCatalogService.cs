@@ -105,6 +105,8 @@ namespace APICore.Services.Impls
                     && p.IsForSale)
                 .ToListAsync();
 
+            var promotions = await GetActivePromotionsMapAsync(products.Select(p => p.Id).ToList(), location.OrganizationId);
+
             if (products.Count == 0)
                 return Enumerable.Empty<PublicCatalogItemResponse>();
 
@@ -115,23 +117,33 @@ namespace APICore.Services.Impls
 
             var result = products
                 .Where(p => p.Tipo == ProductType.elaborado || productIdsAtLocation.Contains(p.Id))
-                .Select(p => new PublicCatalogItemResponse
-            {
-                Id = p.Id,
-                Code = p.Code,
-                Name = p.Name,
-                Description = p.Description,
-                ImagenUrl = ProductPrimaryImageUrlResolver.Resolve(p),
-                Images = MapCatalogImages(p),
-                Precio = p.Precio,
-                CategoryId = p.CategoryId,
-                CategoryName = p.Category?.Name,
-                CategoryColor = p.Category?.Color,
-                Tipo = p.Tipo.ToString(),
-                StockAtLocation = inventories.TryGetValue(p.Id, out var stock) ? stock : 0,
-                IsOpenNow = isOpenNow,
-                Tags = p.ProductTags?.Select(pt => pt.Tag).Where(t => t != null).Select(t => new TagDto { Id = t!.Id, Name = t.Name, Slug = t.Slug, Color = t.Color }).ToList() ?? new List<TagDto>(),
-            });
+                .Select(p =>
+                {
+                    promotions.TryGetValue(p.Id, out var promo);
+                    var effectivePrice = promo != null ? CalculatePromotionalPrice(p.Precio, promo) : p.Precio;
+                    return new PublicCatalogItemResponse
+                    {
+                        Id = p.Id,
+                        Code = p.Code,
+                        Name = p.Name,
+                        Description = p.Description,
+                        ImagenUrl = ProductPrimaryImageUrlResolver.Resolve(p),
+                        Images = MapCatalogImages(p),
+                        Precio = effectivePrice,
+                        OriginalPrecio = p.Precio,
+                        HasActivePromotion = promo != null,
+                        PromotionType = promo?.Type.ToString(),
+                        PromotionValue = promo?.Value,
+                        PromotionId = promo?.Id,
+                        CategoryId = p.CategoryId,
+                        CategoryName = p.Category?.Name,
+                        CategoryColor = p.Category?.Color,
+                        Tipo = p.Tipo.ToString(),
+                        StockAtLocation = inventories.TryGetValue(p.Id, out var stock) ? stock : 0,
+                        IsOpenNow = isOpenNow,
+                        Tags = p.ProductTags?.Select(pt => pt.Tag).Where(t => t != null).Select(t => new TagDto { Id = t!.Id, Name = t.Name, Slug = t.Slug, Color = t.Color }).ToList() ?? new List<TagDto>(),
+                    };
+                });
 
             return result;
         }
@@ -205,6 +217,8 @@ namespace APICore.Services.Impls
                 .Where(p => p.IsForSale)
                 .ToDictionaryAsync(p => p.Id, p => p);
 
+            var promotions = await GetActivePromotionsMapByOrganizationAsync(products.Keys.ToList());
+
             var allItems = new List<PublicCatalogItemResponse>();
 
             foreach (var li in locationInfos)
@@ -218,6 +232,12 @@ namespace APICore.Services.Impls
                         continue;
 
                     inventoryLookup.TryGetValue((p.Id, loc.Id), out var stock);
+                    Promotion? promo = null;
+                    if (promotions.TryGetValue(p.Id, out var promosByOrg) && promosByOrg.TryGetValue(loc.OrganizationId, out var scopedPromo))
+                    {
+                        promo = scopedPromo;
+                    }
+                    var effectivePrice = promo != null ? CalculatePromotionalPrice(p.Precio, promo) : p.Precio;
 
                     allItems.Add(new PublicCatalogItemResponse
                     {
@@ -227,7 +247,12 @@ namespace APICore.Services.Impls
                         Description = p.Description,
                         ImagenUrl = ProductPrimaryImageUrlResolver.Resolve(p),
                         Images = MapCatalogImages(p),
-                        Precio = p.Precio,
+                        Precio = effectivePrice,
+                        OriginalPrecio = p.Precio,
+                        HasActivePromotion = promo != null,
+                        PromotionType = promo?.Type.ToString(),
+                        PromotionValue = promo?.Value,
+                        PromotionId = promo?.Id,
                         CategoryId = p.CategoryId,
                         CategoryName = p.Category?.Name,
                         CategoryColor = p.Category?.Color,
@@ -249,6 +274,13 @@ namespace APICore.Services.Impls
 
                 foreach (var p in elaboradoProducts)
                 {
+                    Promotion? promo = null;
+                    if (promotions.TryGetValue(p.Id, out var promosByOrg) && promosByOrg.TryGetValue(loc.OrganizationId, out var scopedPromo))
+                    {
+                        promo = scopedPromo;
+                    }
+                    var effectivePrice = promo != null ? CalculatePromotionalPrice(p.Precio, promo) : p.Precio;
+
                     allItems.Add(new PublicCatalogItemResponse
                     {
                         Id = p.Id,
@@ -257,7 +289,12 @@ namespace APICore.Services.Impls
                         Description = p.Description,
                         ImagenUrl = ProductPrimaryImageUrlResolver.Resolve(p),
                         Images = MapCatalogImages(p),
-                        Precio = p.Precio,
+                        Precio = effectivePrice,
+                        OriginalPrecio = p.Precio,
+                        HasActivePromotion = promo != null,
+                        PromotionType = promo?.Type.ToString(),
+                        PromotionValue = promo?.Value,
+                        PromotionId = promo?.Id,
                         CategoryId = p.CategoryId,
                         CategoryName = p.Category?.Name,
                         CategoryColor = p.Category?.Color,
@@ -401,6 +438,67 @@ namespace APICore.Services.Impls
                 .ToListAsync();
 
             return tags;
+        }
+
+        private async Task<Dictionary<int, Promotion>> GetActivePromotionsMapAsync(List<int> productIds, int? organizationId)
+        {
+            if (productIds.Count == 0)
+                return new Dictionary<int, Promotion>();
+
+            var now = DateTime.UtcNow;
+            var query = _context.Promotions
+                .IgnoreQueryFilters()
+                .Where(p => productIds.Contains(p.ProductId)
+                    && p.IsActive
+                    && p.MinQuantity <= 1
+                    && (!p.StartsAt.HasValue || p.StartsAt.Value <= now)
+                    && (!p.EndsAt.HasValue || p.EndsAt.Value >= now));
+
+            if (organizationId.HasValue)
+                query = query.Where(p => p.OrganizationId == organizationId.Value);
+
+            var promotions = await query
+                .OrderByDescending(p => p.Value)
+                .ThenByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            return promotions
+                .GroupBy(p => p.ProductId)
+                .ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<int, Dictionary<int, Promotion>>> GetActivePromotionsMapByOrganizationAsync(List<int> productIds)
+        {
+            if (productIds.Count == 0)
+                return new Dictionary<int, Dictionary<int, Promotion>>();
+
+            var now = DateTime.UtcNow;
+            var promotions = await _context.Promotions
+                .IgnoreQueryFilters()
+                .Where(p => productIds.Contains(p.ProductId)
+                    && p.IsActive
+                    && p.MinQuantity <= 1
+                    && (!p.StartsAt.HasValue || p.StartsAt.Value <= now)
+                    && (!p.EndsAt.HasValue || p.EndsAt.Value >= now))
+                .OrderByDescending(p => p.Value)
+                .ThenByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            return promotions
+                .GroupBy(p => p.ProductId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.GroupBy(x => x.OrganizationId).ToDictionary(og => og.Key, og => og.First()));
+        }
+
+        private static decimal CalculatePromotionalPrice(decimal originalPrice, Promotion promotion)
+        {
+            if (promotion.Type == PromotionType.percentage)
+            {
+                return Math.Max(0, originalPrice - (originalPrice * (promotion.Value / 100m)));
+            }
+
+            return Math.Max(0, promotion.Value);
         }
     }
 }

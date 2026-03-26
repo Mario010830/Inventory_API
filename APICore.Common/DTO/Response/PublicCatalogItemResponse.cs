@@ -24,6 +24,11 @@ namespace APICore.Common.DTO.Response
         /// <summary>Todas las imágenes del producto, ordenadas por <see cref="PublicCatalogImageItem.SortOrder"/>.</summary>
         public List<PublicCatalogImageItem> Images { get; set; } = new List<PublicCatalogImageItem>();
         public decimal Precio { get; set; }
+        public decimal OriginalPrecio { get; set; }
+        public bool HasActivePromotion { get; set; }
+        public string? PromotionType { get; set; }
+        public decimal? PromotionValue { get; set; }
+        public int? PromotionId { get; set; }
         public int? CategoryId { get; set; }
         public string? CategoryName { get; set; }
         public string? CategoryColor { get; set; }

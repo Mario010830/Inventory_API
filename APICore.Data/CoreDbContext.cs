@@ -37,6 +37,7 @@ namespace APICore.Data
         public DbSet<SaleReturnItem> SaleReturnItems { get; set; }
         public DbSet<Tag> Tags { get; set; }
         public DbSet<ProductTag> ProductTags { get; set; }
+        public DbSet<Promotion> Promotions { get; set; }
         public DbSet<Plan> Plans { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }
         public DbSet<SubscriptionRequest> SubscriptionRequests { get; set; }
@@ -81,8 +82,7 @@ namespace APICore.Data
 
             modelBuilder.Entity<InventoryMovement>()
                 .Property(m => m.Reason)
-                .HasColumnName("Cause")
-                .HasConversion(new Microsoft.EntityFrameworkCore.Storage.ValueConversion.EnumToStringConverter<APICore.Data.Entities.Enums.InventoryMovementReason>());
+                .HasColumnName("Cause");
 
             modelBuilder.Entity<InventoryMovement>()
                 .HasOne(m => m.Product)
@@ -148,6 +148,13 @@ namespace APICore.Data
                 .WithMany()
                 .HasForeignKey(i => i.ProductId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleOrderItem>()
+                .HasOne(i => i.Promotion)
+                .WithMany()
+                .HasForeignKey(i => i.PromotionId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // SaleReturn
             modelBuilder.Entity<SaleReturn>()
@@ -218,6 +225,22 @@ namespace APICore.Data
                 .WithMany(o => o.Products)
                 .HasForeignKey(p => p.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Promotion>()
+                .Property(p => p.Type)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<Promotion>()
+                .HasOne(p => p.Organization)
+                .WithMany()
+                .HasForeignKey(p => p.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Promotion>()
+                .HasOne(p => p.Product)
+                .WithMany(pr => pr.Promotions)
+                .HasForeignKey(p => p.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<ProductImage>()
                 .HasOne(pi => pi.Product)
@@ -332,6 +355,9 @@ namespace APICore.Data
             modelBuilder.Entity<ProductCategory>().HasQueryFilter(c =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && c.OrganizationId == CurrentOrganizationId));
+            modelBuilder.Entity<Promotion>().HasQueryFilter(p =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && p.OrganizationId == CurrentOrganizationId));
             modelBuilder.Entity<Supplier>().HasQueryFilter(s =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && s.OrganizationId == CurrentOrganizationId));

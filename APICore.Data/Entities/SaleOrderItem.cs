@@ -18,9 +18,16 @@ namespace APICore.Data.Entities
         public decimal UnitPrice { get; set; }
 
         /// <summary>
+        /// Precio original del producto antes de aplicar promoción.
+        /// </summary>
+        public decimal OriginalUnitPrice { get; set; }
+
+        /// <summary>
         /// Costo unitario al momento de la venta (snapshot). Necesario para calcular margen.
         /// </summary>
         public decimal UnitCost { get; set; }
+
+        public int? PromotionId { get; set; }
 
         public decimal Discount { get; set; }
 
@@ -31,5 +38,6 @@ namespace APICore.Data.Entities
 
         public SaleOrder? SaleOrder { get; set; }
         public Product? Product { get; set; }
+        public Promotion? Promotion { get; set; }
     }
 }

@@ -31,7 +31,9 @@ namespace APICore.Common.DTO.Response
         public string? ProductName { get; set; }
         public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
+        public decimal OriginalUnitPrice { get; set; }
         public decimal UnitCost { get; set; }
+        public int? PromotionId { get; set; }
         public decimal Discount { get; set; }
         public decimal LineTotal { get; set; }
 

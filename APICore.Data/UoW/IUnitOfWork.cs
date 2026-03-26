@@ -27,6 +27,7 @@ namespace APICore.Data.UoW
         IGenericRepository<SaleReturn> SaleReturnRepository { get; set; }
         IGenericRepository<SaleReturnItem> SaleReturnItemRepository { get; set; }
         IGenericRepository<Tag> TagRepository { get; set; }
+        IGenericRepository<Promotion> PromotionRepository { get; set; }
         IGenericRepository<Plan> PlanRepository { get; set; }
         IGenericRepository<Subscription> SubscriptionRepository { get; set; }
         IGenericRepository<SubscriptionRequest> SubscriptionRequestRepository { get; set; }
