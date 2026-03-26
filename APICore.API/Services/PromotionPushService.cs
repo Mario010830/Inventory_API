@@ -24,19 +24,27 @@ namespace APICore.API.Services
             _logger = logger;
         }
 
-        public async Task NotifyPromotionActivatedAsync(int promotionId)
+        public async Task<PromotionPushDispatchResult> NotifyPromotionActivatedAsync(int promotionId)
         {
+            var dispatch = new PromotionPushDispatchResult
+            {
+                PushAttempted = false,
+                PromotionId = promotionId
+            };
+
             var promotion = await _context.Promotions
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(p => p.Id == promotionId);
             if (promotion == null || !promotion.IsActive)
-                return;
+                return dispatch;
+
+            dispatch.OrganizationId = promotion.OrganizationId;
 
             var product = await _context.Products
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(p => p.Id == promotion.ProductId && p.OrganizationId == promotion.OrganizationId);
             if (product == null)
-                return;
+                return dispatch;
 
             var locationIds = await _context.Locations
                 .IgnoreQueryFilters()
@@ -44,8 +52,11 @@ namespace APICore.API.Services
                 .Select(l => l.Id)
                 .ToListAsync();
 
+            dispatch.ResolvedLocationsCount = locationIds.Count;
             if (locationIds.Count == 0)
-                return;
+                return dispatch;
+
+            dispatch.PushAttempted = true;
 
             var promoLabel = promotion.Type.ToString() == "percentage"
                 ? $"{promotion.Value:0.##}% OFF"
@@ -64,6 +75,18 @@ namespace APICore.API.Services
                     };
 
                     var response = await _pushNotificationService.SendToLocationAsync(payload);
+                    dispatch.Sent += response.Sent;
+                    dispatch.Failed += response.Failed;
+                    dispatch.Deactivated += response.Deactivated;
+                    dispatch.Locations.Add(new PromotionPushLocationResult
+                    {
+                        LocationId = locationId,
+                        TotalSubscriptions = response.TotalSubscriptions,
+                        Sent = response.Sent,
+                        Failed = response.Failed,
+                        Deactivated = response.Deactivated
+                    });
+
                     if (response.Failed > 0)
                     {
                         _logger.LogWarning(
@@ -73,11 +96,23 @@ namespace APICore.API.Services
                 }
                 catch (Exception ex)
                 {
+                    dispatch.Failed++;
+                    dispatch.Locations.Add(new PromotionPushLocationResult
+                    {
+                        LocationId = locationId,
+                        TotalSubscriptions = 0,
+                        Sent = 0,
+                        Failed = 1,
+                        Deactivated = 0,
+                        Error = ex.Message
+                    });
                     _logger.LogWarning(ex,
                         "Push send exception for promotion {PromotionId}, location {LocationId}",
                         promotionId, locationId);
                 }
             }
+
+            return dispatch;
         }
     }
 }

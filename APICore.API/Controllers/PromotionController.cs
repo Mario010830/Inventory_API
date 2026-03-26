@@ -36,10 +36,21 @@ namespace APICore.API.Controllers
         public async Task<IActionResult> CreatePromotion([FromBody] CreatePromotionRequest request)
         {
             var result = await _promotionService.CreatePromotion(request);
+            PromotionPushDispatchResult? pushResult = null;
             if (result.IsActive)
-                await _promotionPushService.NotifyPromotionActivatedAsync(result.Id);
+                pushResult = await _promotionPushService.NotifyPromotionActivatedAsync(result.Id);
             var response = _mapper.Map<PromotionResponse>(result);
-            return Created("", new ApiCreatedResponse(response));
+            return Created("", new ApiCreatedResponse(new
+            {
+                promotion = response,
+                push = pushResult ?? new PromotionPushDispatchResult
+                {
+                    PushAttempted = false,
+                    PromotionId = result.Id,
+                    OrganizationId = result.OrganizationId,
+                    ResolvedLocationsCount = 0
+                }
+            }));
         }
 
         [HttpGet]
