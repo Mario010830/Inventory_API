@@ -117,6 +117,11 @@ namespace APICore.API.Services
                 badge = request.Badge
             });
 
+            _logger.LogInformation(
+                "Push payload prepared for location {LocationId}: {Payload}",
+                request.LocationId,
+                payload);
+
             foreach (var sub in subscriptions)
             {
                 try
