@@ -87,7 +87,10 @@ jobs:
                 "BaseUrl": "http://162.220.165.172:5000/"
               },
               "PushNotifications": {
-                "SendEndpoint": "${{ secrets.PUSH_SEND_ENDPOINT }}"
+                "SendEndpoint": "${{ secrets.PUSH_SEND_ENDPOINT }}",
+                "VapidSubject": "${{ secrets.VAPID_SUBJECT }}",
+                "VapidPublicKey": "${{ secrets.VAPID_PUBLIC_KEY }}",
+                "VapidPrivateKey": "${{ secrets.VAPID_PRIVATE_KEY }}"
               }
             }
             EOF

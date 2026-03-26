@@ -78,7 +78,8 @@ namespace APICore.API
             services.AddTransient<ILogService, LogService>();
             services.Configure<LocalStorageOptions>(Configuration.GetSection(LocalStorageOptions.SectionName));
             services.AddTransient<IStorageService, APICore.API.Services.LocalStorageService>();
-            services.AddHttpClient<APICore.API.Services.IPromotionPushService, APICore.API.Services.PromotionPushService>();
+            services.AddTransient<APICore.API.Services.IPushNotificationService, APICore.API.Services.PushNotificationService>();
+            services.AddTransient<APICore.API.Services.IPromotionPushService, APICore.API.Services.PromotionPushService>();
             services.AddTransient<IProductService, ProductService>();
             services.AddTransient<IProductCategoryService, ProductCategoryService>();
             services.AddTransient<IInventoryService, InventoryService>();

@@ -43,6 +43,7 @@ namespace APICore.Data
         public DbSet<SubscriptionRequest> SubscriptionRequests { get; set; }
         public DbSet<Currency> Currencies { get; set; }
         public DbSet<BusinessCategory> BusinessCategories { get; set; }
+        public DbSet<WebPushSubscription> WebPushSubscriptions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -70,6 +71,22 @@ namespace APICore.Data
                 .HasForeignKey(l => l.BusinessCategoryId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<WebPushSubscription>()
+                .HasOne(s => s.Location)
+                .WithMany()
+                .HasForeignKey(s => s.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<WebPushSubscription>()
+                .HasOne(s => s.Organization)
+                .WithMany()
+                .HasForeignKey(s => s.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<WebPushSubscription>()
+                .HasIndex(s => s.Endpoint)
+                .IsUnique();
 
             modelBuilder.Entity<BusinessCategory>(e =>
             {
@@ -373,6 +390,10 @@ namespace APICore.Data
             modelBuilder.Entity<Setting>().HasQueryFilter(s =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && (s.OrganizationId == null || s.OrganizationId == CurrentOrganizationId)));
+            modelBuilder.Entity<WebPushSubscription>().HasQueryFilter(s =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && s.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && s.OrganizationId == CurrentOrganizationId));
             modelBuilder.Entity<Log>().HasQueryFilter(l =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && (l.OrganizationId == null || l.OrganizationId == CurrentOrganizationId)));
