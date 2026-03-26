@@ -3,6 +3,7 @@ using APICore.API.BasicResponses;
 using APICore.Common.Constants;
 using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
+using APICore.API.Services;
 using APICore.Services;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -19,11 +20,13 @@ namespace APICore.API.Controllers
     public class PromotionController : Controller
     {
         private readonly IPromotionService _promotionService;
+        private readonly IPromotionPushService _promotionPushService;
         private readonly IMapper _mapper;
 
-        public PromotionController(IPromotionService promotionService, IMapper mapper)
+        public PromotionController(IPromotionService promotionService, IPromotionPushService promotionPushService, IMapper mapper)
         {
             _promotionService = promotionService ?? throw new ArgumentNullException(nameof(promotionService));
+            _promotionPushService = promotionPushService ?? throw new ArgumentNullException(nameof(promotionPushService));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
@@ -33,6 +36,8 @@ namespace APICore.API.Controllers
         public async Task<IActionResult> CreatePromotion([FromBody] CreatePromotionRequest request)
         {
             var result = await _promotionService.CreatePromotion(request);
+            if (result.IsActive)
+                await _promotionPushService.NotifyPromotionActivatedAsync(result.Id);
             var response = _mapper.Map<PromotionResponse>(result);
             return Created("", new ApiCreatedResponse(response));
         }
@@ -61,7 +66,11 @@ namespace APICore.API.Controllers
         [ProducesResponseType((int)HttpStatusCode.NoContent)]
         public async Task<IActionResult> UpdatePromotion(int id, [FromBody] UpdatePromotionRequest request)
         {
+            var before = await _promotionService.GetPromotion(id);
             await _promotionService.UpdatePromotion(id, request);
+            var after = await _promotionService.GetPromotion(id);
+            if (!before.IsActive && after.IsActive)
+                await _promotionPushService.NotifyPromotionActivatedAsync(id);
             return NoContent();
         }
 
@@ -71,6 +80,8 @@ namespace APICore.API.Controllers
         public async Task<IActionResult> TogglePromotion(int id, [FromQuery] bool isActive)
         {
             await _promotionService.TogglePromotion(id, isActive);
+            if (isActive)
+                await _promotionPushService.NotifyPromotionActivatedAsync(id);
             return NoContent();
         }
     }
