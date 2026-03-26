@@ -34,6 +34,12 @@ jobs:
           target: "/var/www/strova"
           rm: false
 
+      # Secretos repo (Settings → Secrets and variables → Actions):
+      #   PUSH_SEND_ENDPOINT      ej. http://TU_IP:5000/api/push/send
+      #   PUSH_VAPID_SUBJECT      ej. mailto:tu@email.com
+      #   PUSH_VAPID_PUBLIC_KEY   clave pública VAPID (base64 URL-safe)
+      #   PUSH_VAPID_PRIVATE_KEY  clave privada VAPID
+      # Variable (opcional): PUSH_IMAGE_PROXY_URL_TEMPLATE — si la defines, sustituye la plantilla HTTPS del proxy de imagen en push (debe incluir {url} o {path}).
       - name: Crear appsettings y reiniciar servicio
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -85,6 +91,14 @@ jobs:
               "LocalStorage": {
                 "StorageFolder": "uploads/products",
                 "BaseUrl": "http://162.220.165.172:5000/"
+              },
+              "PushNotifications": {
+                "SendEndpoint": "${{ secrets.PUSH_SEND_ENDPOINT }}",
+                "PushImageProxyUrlTemplate": "${{ vars.PUSH_IMAGE_PROXY_URL_TEMPLATE || 'https://strova-store.vercel.app/api/image-proxy?url={url}' }}",
+                "PublicStoreBaseUrl": "https://strova-store.vercel.app",
+                "VapidSubject": "${{ secrets.VAPID_SUBJECT }}",
+                "VapidPublicKey": "${{ secrets.VAPID_PUBLIC_KEY }}",
+                "VapidPrivateKey": "${{ secrets.VAPID_PRIVATE_KEY }}"
               }
             }
             EOF

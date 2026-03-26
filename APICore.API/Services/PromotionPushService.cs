@@ -1,6 +1,7 @@
 using APICore.Data;
 using APICore.Common.DTO.Request;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
@@ -12,16 +13,68 @@ namespace APICore.API.Services
     {
         private readonly CoreDbContext _context;
         private readonly IPushNotificationService _pushNotificationService;
+        private readonly IConfiguration _configuration;
         private readonly ILogger<PromotionPushService> _logger;
 
         public PromotionPushService(
             CoreDbContext context,
             IPushNotificationService pushNotificationService,
+            IConfiguration configuration,
             ILogger<PromotionPushService> logger)
         {
             _context = context;
             _pushNotificationService = pushNotificationService;
+            _configuration = configuration;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// If <paramref name="pathOrUrl"/> is already absolute, returns it; otherwise joins with <paramref name="baseUrl"/> (PWA/API public base).
+        /// </summary>
+        private static string? ToAbsoluteUrl(string? baseUrl, string? pathOrUrl)
+        {
+            if (string.IsNullOrWhiteSpace(pathOrUrl))
+                return pathOrUrl;
+            if (Uri.TryCreate(pathOrUrl, UriKind.Absolute, out _))
+                return pathOrUrl;
+            var b = (baseUrl ?? "").TrimEnd('/');
+            if (string.IsNullOrEmpty(b))
+                return pathOrUrl;
+            return $"{b}/{pathOrUrl.TrimStart('/')}";
+        }
+
+        /// <summary>
+        /// Resolves the product image to an HTTPS URL for Web Push (e.g. Vercel proxy). Uses
+        /// <c>PushNotifications:PushImageProxyUrlTemplate</c> with <c>{url}</c> (full source URL, encoded) or <c>{path}</c> (PathAndQuery only, encoded).
+        /// If the template is empty, returns the absolute URL from LocalStorage (legacy HTTP API URL).
+        /// </summary>
+        private string? BuildPushProductImageUrl(string? apiBase, string? imagenUrl)
+        {
+            var sourceAbsolute = ToAbsoluteUrl(apiBase, imagenUrl);
+            if (string.IsNullOrWhiteSpace(sourceAbsolute))
+                return null;
+
+            var template = _configuration["PushNotifications:PushImageProxyUrlTemplate"]?.Trim();
+            if (string.IsNullOrEmpty(template))
+                return sourceAbsolute;
+
+            const string urlToken = "{url}";
+            const string pathToken = "{path}";
+
+            if (template.Contains(pathToken, StringComparison.Ordinal))
+            {
+                if (!Uri.TryCreate(sourceAbsolute, UriKind.Absolute, out var srcUri))
+                    return sourceAbsolute;
+                var pathAndQuery = string.IsNullOrEmpty(srcUri.PathAndQuery) ? "/" : srcUri.PathAndQuery;
+                return template.Replace(pathToken, Uri.EscapeDataString(pathAndQuery), StringComparison.Ordinal);
+            }
+
+            if (template.Contains(urlToken, StringComparison.Ordinal))
+                return template.Replace(urlToken, Uri.EscapeDataString(sourceAbsolute), StringComparison.Ordinal);
+
+            _logger.LogWarning(
+                "PushImageProxyUrlTemplate is set but has no {{url}} or {{path}} placeholder; using raw image URL.");
+            return sourceAbsolute;
         }
 
         public async Task<PromotionPushDispatchResult> NotifyPromotionActivatedAsync(int promotionId)
@@ -58,6 +111,9 @@ namespace APICore.API.Services
 
             dispatch.PushAttempted = true;
 
+            var storeBase = _configuration["PushNotifications:PublicStoreBaseUrl"];
+            var apiBase = _configuration["LocalStorage:BaseUrl"];
+
             var promoLabel = promotion.Type.ToString() == "percentage"
                 ? $"{promotion.Value:0.##}% OFF"
                 : $"Oferta {promotion.Value:0.##}";
@@ -66,16 +122,19 @@ namespace APICore.API.Services
             {
                 try
                 {
+                    var relativeStorePath = $"/store?locationId={locationId}&productId={product.Id}";
+                    var pushImage = BuildPushProductImageUrl(apiBase, product.ImagenUrl);
                     var payload = new PushSendRequest
                     {
                         LocationId = locationId,
                         Title = "Nueva promocion disponible",
                         Body = $"{product.Name}: {promoLabel}",
-                        Url = $"/store?locationId={locationId}&productId={product.Id}",
+                        Url = ToAbsoluteUrl(storeBase, relativeStorePath) ?? relativeStorePath,
                         Tag = $"promo-location-{locationId}",
-                        Image = product.ImagenUrl,
-                        Icon = "/images/icon-192x192.png",
-                        Badge = "/images/icon-72x72.png"
+                        Image = pushImage,
+                        ImageUrl = pushImage,
+                        Icon = ToAbsoluteUrl(storeBase, "/images/icon-192x192.png"),
+                        Badge = ToAbsoluteUrl(storeBase, "/images/icon-72x72.png")
                     };
 
                     var response = await _pushNotificationService.SendToLocationAsync(payload);
