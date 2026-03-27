@@ -78,6 +78,14 @@ namespace APICore.Services.Impls
                 if (product == null)
                     throw new ProductNotFoundException(_localizer);
 
+                if (product.Tipo == ProductType.elaborado)
+                {
+                    var offered = await _context.ProductLocationOffers.IgnoreQueryFilters()
+                        .AnyAsync(o => o.ProductId == product.Id && o.LocationId == request.LocationId);
+                    if (!offered)
+                        throw new ProductNotOfferedAtLocationBadRequestException(_localizer);
+                }
+
                 var qty = DecimalRoundingHelper.RoundQuantity(itemReq.Quantity, decimals);
                 var originalUnitPrice = Math.Round(itemReq.UnitPrice ?? product.Precio, priceDecimals);
                 var promotion = await _promotionService.GetActivePromotionForProduct(itemReq.ProductId, qty, orgId);
@@ -135,7 +143,13 @@ namespace APICore.Services.Impls
             foreach (var item in order.Items)
             {
                 if (item.Product?.Tipo == ProductType.elaborado)
+                {
+                    var offered = await _context.ProductLocationOffers.IgnoreQueryFilters()
+                        .AnyAsync(o => o.ProductId == item.ProductId && o.LocationId == order.LocationId);
+                    if (!offered)
+                        throw new ProductNotOfferedAtLocationBadRequestException(_localizer);
                     continue;
+                }
 
                 var inventory = await _uow.InventoryRepository.FirstOrDefaultAsync(
                     i => i.ProductId == item.ProductId && i.LocationId == order.LocationId);
@@ -150,6 +164,9 @@ namespace APICore.Services.Impls
             // Descontar inventario y crear movimientos
             foreach (var item in order.Items)
             {
+                if (item.Product?.Tipo == ProductType.elaborado)
+                    continue;
+
                 var inventory = await _uow.InventoryRepository.FirstOrDefaultAsync(
                     i => i.ProductId == item.ProductId && i.LocationId == order.LocationId);
 
@@ -215,6 +232,9 @@ namespace APICore.Services.Impls
 
                 foreach (var item in order.Items)
                 {
+                    if (item.Product?.Tipo == ProductType.elaborado)
+                        continue;
+
                     var inventory = await _uow.InventoryRepository.FirstOrDefaultAsync(
                         i => i.ProductId == item.ProductId && i.LocationId == order.LocationId);
 

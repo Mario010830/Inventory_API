@@ -69,6 +69,9 @@ namespace APICore.API.Utils
             CreateMap<Product, ProductResponse>()
                 .ForMember(d => d.Category, opts => opts.MapFrom(source => source.Category))
                 .ForMember(d => d.Tipo, opts => opts.MapFrom(source => source.Tipo.ToString()))
+                .ForMember(d => d.OfferLocationIds, opts => opts.MapFrom(source => source.LocationOffers != null && source.LocationOffers.Count > 0
+                    ? source.LocationOffers.OrderBy(x => x.LocationId).Select(x => x.LocationId).ToList()
+                    : new List<int>()))
                 .ForMember(d => d.ImagenUrl, opts => opts.MapFrom(source => ProductPrimaryImageUrlResolver.Resolve(source)))
                 .ForMember(d => d.ProductImages, opts => opts.MapFrom(source => source.ProductImages != null
                     ? source.ProductImages.OrderBy(pi => pi.SortOrder).ToList()
@@ -84,6 +87,7 @@ namespace APICore.API.Utils
                 .ForMember(d => d.Category, opts => opts.Ignore())
                 .ForMember(d => d.Inventories, opts => opts.Ignore())
                 .ForMember(d => d.InventoryMovements, opts => opts.Ignore())
+                .ForMember(d => d.LocationOffers, opts => opts.Ignore())
                 .ForMember(d => d.Tipo, opts => opts.Ignore());
 
             CreateMap<Inventory, InventoryResponse>()

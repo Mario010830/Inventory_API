@@ -94,8 +94,10 @@ namespace APICore.Services.Impls
                     if (existingTags.Contains(tagId))
                         _context.ProductTags.Add(new ProductTag { ProductId = newProduct.Id, TagId = tagId });
                 }
-                await _uow.CommitAsync();
             }
+
+            await ReplaceProductLocationOffersForElaboradoAsync(newProduct.Id, orgId, tipo, request.OfferLocationIds, isUpdate: false);
+            await _uow.CommitAsync();
 
             return newProduct;
         }
@@ -144,6 +146,7 @@ namespace APICore.Services.Impls
             IQueryable<Product> query = _context.Products
                 .Include(p => p.Category)
                 .Include(p => p.ProductImages)
+                .Include(p => p.LocationOffers)
                 .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag);
             if (onlyForSale == true)
@@ -158,6 +161,7 @@ namespace APICore.Services.Impls
             var query = _context.Products
                 .Include(p => p.Category)
                 .Include(p => p.ProductImages)
+                .Include(p => p.LocationOffers)
                 .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag)
                 .Where(p => p.IsForSale);
@@ -169,6 +173,7 @@ namespace APICore.Services.Impls
             var product = await _context.Products
                 .Include(p => p.Category)
                 .Include(p => p.ProductImages)
+                .Include(p => p.LocationOffers)
                 .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag)
                 .FirstOrDefaultAsync(p => p.Id == id);
@@ -253,7 +258,47 @@ namespace APICore.Services.Impls
                 }
             }
 
+            await ReplaceProductLocationOffersForElaboradoAsync(id, oldProduct.OrganizationId, tipo, request.OfferLocationIds, isUpdate: true);
+
             await _uow.CommitAsync();
+        }
+
+        private async Task ReplaceProductLocationOffersForElaboradoAsync(int productId, int orgId, ProductType tipo, List<int>? offerLocationIds, bool isUpdate)
+        {
+            if (tipo != ProductType.elaborado)
+            {
+                var toRemove = await _context.ProductLocationOffers.Where(o => o.ProductId == productId).ToListAsync();
+                if (toRemove.Count > 0)
+                    _context.ProductLocationOffers.RemoveRange(toRemove);
+                return;
+            }
+
+            if (isUpdate && offerLocationIds == null)
+                return;
+
+            var ids = (offerLocationIds ?? new List<int>()).Distinct().ToList();
+            var existingOffers = await _context.ProductLocationOffers.Where(o => o.ProductId == productId).ToListAsync();
+            _context.ProductLocationOffers.RemoveRange(existingOffers);
+
+            if (ids.Count == 0)
+                return;
+
+            var validCount = await _context.Locations.CountAsync(l => ids.Contains(l.Id) && l.OrganizationId == orgId);
+            if (validCount != ids.Count)
+                throw new LocationNotInOrganizationBadRequestException(_localizer);
+
+            var now = DateTime.UtcNow;
+            foreach (var locId in ids)
+            {
+                _context.ProductLocationOffers.Add(new ProductLocationOffer
+                {
+                    ProductId = productId,
+                    LocationId = locId,
+                    OrganizationId = orgId,
+                    CreatedAt = now,
+                    ModifiedAt = now,
+                });
+            }
         }
 
         public async Task<decimal> GetTotalStockForProductAsync(int productId)

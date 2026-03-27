@@ -95,6 +95,12 @@ namespace APICore.Services.Impls
                 .Distinct()
                 .ToListAsync();
 
+            var elaboradoOfferProductIds = await _context.ProductLocationOffers
+                .IgnoreQueryFilters()
+                .Where(o => o.LocationId == locationId && o.OrganizationId == location.OrganizationId)
+                .Select(o => o.ProductId)
+                .ToListAsync();
+
             var products = await _context.Products
                 .IgnoreQueryFilters()
                 .Include(p => p.Category)
@@ -116,7 +122,9 @@ namespace APICore.Services.Impls
                 .ToDictionaryAsync(i => i.ProductId, i => i.CurrentStock);
 
             var result = products
-                .Where(p => p.Tipo == ProductType.elaborado || productIdsAtLocation.Contains(p.Id))
+                .Where(p =>
+                    (p.Tipo == ProductType.inventariable && productIdsAtLocation.Contains(p.Id))
+                    || (p.Tipo == ProductType.elaborado && elaboradoOfferProductIds.Contains(p.Id)))
                 .Select(p =>
                 {
                     promotions.TryGetValue(p.Id, out var promo);
@@ -195,6 +203,13 @@ namespace APICore.Services.Impls
                 i => (i.ProductId, i.LocationId),
                 i => i.CurrentStock);
 
+            var offerPairs = await _context.ProductLocationOffers
+                .IgnoreQueryFilters()
+                .Where(o => locationIds.Contains(o.LocationId))
+                .Select(o => new { o.ProductId, o.LocationId })
+                .ToListAsync();
+            var elaboradoOfferSet = offerPairs.Select(o => (o.ProductId, o.LocationId)).ToHashSet();
+
             var productIdsInCatalog = inventories.Select(i => i.ProductId).Distinct().ToList();
             if (locationInfos.Count == 0)
             {
@@ -265,12 +280,12 @@ namespace APICore.Services.Impls
                     });
                 }
 
-                // Los elaborados se muestran en catálogo público por "en venta",
-                // aunque no tengan stock/registro de inventario.
+                // Elaborados: solo si hay fila en ProductLocationOffers para esta tienda.
                 var elaboradoProducts = products.Values
                     .Where(p => p.OrganizationId == loc.OrganizationId
                         && p.Tipo == ProductType.elaborado
-                        && !productIdsAtLoc.Contains(p.Id));
+                        && !productIdsAtLoc.Contains(p.Id)
+                        && elaboradoOfferSet.Contains((p.Id, loc.Id)));
 
                 foreach (var p in elaboradoProducts)
                 {

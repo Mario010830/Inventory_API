@@ -1,7 +1,9 @@
 using APICore.Data;
 using APICore.Common.DTO.Request;
+using APICore.Data.Entities.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
@@ -117,9 +119,34 @@ namespace APICore.API.Services
             if (product == null)
                 return dispatch;
 
-            var locations = await _context.Locations
+            var orgLocationIds = await _context.Locations
                 .IgnoreQueryFilters()
                 .Where(l => l.OrganizationId == promotion.OrganizationId)
+                .Select(l => l.Id)
+                .ToListAsync();
+            var locIdSet = orgLocationIds.ToHashSet();
+
+            HashSet<int> eligibleLocationIds;
+            if (product.Tipo == ProductType.elaborado)
+            {
+                eligibleLocationIds = (await _context.ProductLocationOffers
+                    .IgnoreQueryFilters()
+                    .Where(o => o.ProductId == product.Id && locIdSet.Contains(o.LocationId))
+                    .Select(o => o.LocationId)
+                    .ToListAsync()).ToHashSet();
+            }
+            else
+            {
+                eligibleLocationIds = (await _context.Inventories
+                    .IgnoreQueryFilters()
+                    .Where(i => i.ProductId == product.Id && locIdSet.Contains(i.LocationId))
+                    .Select(i => i.LocationId)
+                    .ToListAsync()).ToHashSet();
+            }
+
+            var locations = await _context.Locations
+                .IgnoreQueryFilters()
+                .Where(l => l.OrganizationId == promotion.OrganizationId && eligibleLocationIds.Contains(l.Id))
                 .ToListAsync();
 
             dispatch.ResolvedLocationsCount = locations.Count;

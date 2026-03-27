@@ -31,5 +31,8 @@ namespace APICore.Data.Entities
         public ICollection<ProductImage> ProductImages { get; set; } = new List<ProductImage>();
 
         public ICollection<Promotion> Promotions { get; set; } = new List<Promotion>();
+
+        public ICollection<ProductLocationOffer> LocationOffers { get; set; } = new List<ProductLocationOffer>();
     }
 }
+

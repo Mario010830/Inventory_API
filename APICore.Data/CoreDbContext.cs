@@ -44,6 +44,7 @@ namespace APICore.Data
         public DbSet<Currency> Currencies { get; set; }
         public DbSet<BusinessCategory> BusinessCategories { get; set; }
         public DbSet<WebPushSubscription> WebPushSubscriptions { get; set; }
+        public DbSet<ProductLocationOffer> ProductLocationOffers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -264,6 +265,26 @@ namespace APICore.Data
                 .WithMany(p => p.ProductImages)
                 .HasForeignKey(pi => pi.ProductId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ProductLocationOffer>()
+                .HasIndex(o => new { o.ProductId, o.LocationId })
+                .IsUnique();
+            modelBuilder.Entity<ProductLocationOffer>()
+                .HasOne(o => o.Product)
+                .WithMany(p => p.LocationOffers)
+                .HasForeignKey(o => o.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ProductLocationOffer>()
+                .HasOne(o => o.Location)
+                .WithMany()
+                .HasForeignKey(o => o.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ProductLocationOffer>()
+                .HasOne(o => o.Organization)
+                .WithMany()
+                .HasForeignKey(o => o.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<Product>()
                 .Property(p => p.Tipo)
                 .HasConversion<string>()
@@ -366,6 +387,9 @@ namespace APICore.Data
             modelBuilder.Entity<Product>().HasQueryFilter(p =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && p.OrganizationId == CurrentOrganizationId));
+            modelBuilder.Entity<ProductLocationOffer>().HasQueryFilter(o =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && o.OrganizationId == CurrentOrganizationId));
             modelBuilder.Entity<ProductImage>().HasQueryFilter(pi =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && pi.Product != null && pi.Product.OrganizationId == CurrentOrganizationId));

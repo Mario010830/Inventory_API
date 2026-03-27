@@ -16,6 +16,8 @@ namespace APICore.Common.DTO.Request
         public bool? IsAvailable { get; set; }
         public bool? IsForSale { get; set; }
         public string? Tipo { get; set; }
+        /// <summary>Si no es null, reemplaza las ofertas por tienda para <c>elaborado</c>. Ignorado para inventariable (se limpian ofertas al pasar a inventariable).</summary>
+        public List<int>? OfferLocationIds { get; set; }
         public List<int>? TagIds { get; set; }
     }
 }
