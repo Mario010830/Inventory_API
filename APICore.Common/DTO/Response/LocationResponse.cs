@@ -21,6 +21,13 @@ namespace APICore.Common.DTO.Response
         public PublicLocationCoordinatesDto? Coordinates { get; set; }
         /// <summary>Si el local está abierto "ahora mismo" según horario y hora del servidor.</summary>
         public bool IsOpenNow { get; set; }
+        public bool IsVerified { get; set; }
+        public bool OffersDelivery { get; set; }
+        public bool OffersPickup { get; set; }
+        /// <summary>Horario específico de domicilio. null = usa BusinessHours.</summary>
+        public PublicLocationBusinessHoursDto? DeliveryHours { get; set; }
+        /// <summary>Horario específico de recogida. null = usa BusinessHours.</summary>
+        public PublicLocationBusinessHoursDto? PickupHours { get; set; }
         public int? BusinessCategoryId { get; set; }
         public BusinessCategorySummaryDto? BusinessCategory { get; set; }
         public DateTime CreatedAt { get; set; }
