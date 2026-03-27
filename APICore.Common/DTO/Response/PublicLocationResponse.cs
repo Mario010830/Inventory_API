@@ -1,3 +1,5 @@
+using System;
+
 namespace APICore.Common.DTO.Response
 {
     public class PublicLocationResponse
@@ -19,6 +21,18 @@ namespace APICore.Common.DTO.Response
         public PublicLocationCoordinatesDto? Coordinates { get; set; }
         /// <summary>Indica si el local está abierto "ahora mismo" según la hora UTC del servidor.</summary>
         public bool IsOpenNow { get; set; }
+        public bool IsVerified { get; set; }
+        public bool OffersDelivery { get; set; }
+        public bool OffersPickup { get; set; }
+        /// <summary>Horario específico de domicilio. null = usa BusinessHours.</summary>
+        public PublicLocationBusinessHoursDto? DeliveryHours { get; set; }
+        /// <summary>Horario específico de recogida. null = usa BusinessHours.</summary>
+        public PublicLocationBusinessHoursDto? PickupHours { get; set; }
+        public DateTime CreatedAt { get; set; }
+        /// <summary>Cantidad de productos disponibles en esta ubicación.</summary>
+        public int ProductCount { get; set; }
+        /// <summary>Indica si al menos un producto tiene promoción activa.</summary>
+        public bool HasPromo { get; set; }
         public int? BusinessCategoryId { get; set; }
         public BusinessCategorySummaryDto? BusinessCategory { get; set; }
     }
