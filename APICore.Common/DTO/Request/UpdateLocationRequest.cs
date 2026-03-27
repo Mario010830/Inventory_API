@@ -18,5 +18,12 @@ namespace APICore.Common.DTO.Request
         public PublicLocationBusinessHoursRequest? BusinessHours { get; set; }
         /// <summary>Coordenadas opcionales. null = no cambiar / limpiar según convención.</summary>
         public PublicLocationCoordinatesRequest? Coordinates { get; set; }
+        public bool? IsVerified { get; set; }
+        public bool? OffersDelivery { get; set; }
+        public bool? OffersPickup { get; set; }
+        /// <summary>Horario de domicilio. null = no cambiar.</summary>
+        public PublicLocationBusinessHoursRequest? DeliveryHours { get; set; }
+        /// <summary>Horario de recogida. null = no cambiar.</summary>
+        public PublicLocationBusinessHoursRequest? PickupHours { get; set; }
     }
 }
