@@ -10,7 +10,10 @@ namespace APICore.Services
         /// Lista todas las ubicaciones/negocios disponibles para que el usuario elija.
         /// No requiere autenticación.
         /// </summary>
-        Task<IEnumerable<PublicLocationResponse>> GetLocationsAsync();
+        Task<IEnumerable<PublicLocationResponse>> GetLocationsAsync(
+            string? sortBy = null, string? sortDir = null,
+            double? lat = null, double? lng = null, double? radiusKm = null,
+            int? categoryId = null);
 
         /// <summary>
         /// Devuelve el catálogo de productos con IsForSale = true para una ubicación específica,
@@ -24,7 +27,11 @@ namespace APICore.Services
         /// con paginación.
         /// No requiere autenticación.
         /// </summary>
-        Task<PublicCatalogPaginatedResponse> GetCatalogAllAsync(int page, int pageSize);
+        Task<PublicCatalogPaginatedResponse> GetCatalogAllAsync(
+            int page, int pageSize,
+            string? sortBy = null, string? sortDir = null,
+            int? tagId = null, decimal? minPrice = null, decimal? maxPrice = null,
+            bool? inStock = null, bool? hasPromotion = null);
 
         /// <summary>
         /// Lista etiquetas que tienen al menos un producto público (IsForSale) asignado.

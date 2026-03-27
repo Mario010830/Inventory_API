@@ -26,9 +26,12 @@ namespace APICore.API.Controllers
         /// </summary>
         [HttpGet("locations")]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetLocations()
+        public async Task<IActionResult> GetLocations(
+            string? sortBy = null, string? sortDir = null,
+            double? lat = null, double? lng = null, double? radiusKm = null,
+            int? categoryId = null)
         {
-            var locations = await _publicCatalogService.GetLocationsAsync();
+            var locations = await _publicCatalogService.GetLocationsAsync(sortBy, sortDir, lat, lng, radiusKm, categoryId);
             return Ok(new ApiOkResponse(locations));
         }
 
@@ -52,7 +55,11 @@ namespace APICore.API.Controllers
         /// </summary>
         [HttpGet("catalog")]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetCatalog(int? locationId, bool? all, int? page, int? pageSize)
+        public async Task<IActionResult> GetCatalog(
+            int? locationId, bool? all, int? page, int? pageSize,
+            string? sortBy = null, string? sortDir = null,
+            int? tagId = null, decimal? minPrice = null, decimal? maxPrice = null,
+            bool? inStock = null, bool? hasPromotion = null)
         {
             // Si viene locationId → flujo actual (sin cambios).
             if (locationId.HasValue)
@@ -61,7 +68,7 @@ namespace APICore.API.Controllers
                 return Ok(new ApiOkResponse(catalog));
             }
 
-            // Si viene all=true → nuevo flujo paginado.
+            // Si viene all=true → nuevo flujo paginado con filtros y sorting.
             if (all == true)
             {
                 var effectivePage = page.GetValueOrDefault(1);
@@ -72,7 +79,9 @@ namespace APICore.API.Controllers
                     effectivePageSize = 100;
                 }
 
-                var result = await _publicCatalogService.GetCatalogAllAsync(effectivePage, effectivePageSize);
+                var result = await _publicCatalogService.GetCatalogAllAsync(
+                    effectivePage, effectivePageSize,
+                    sortBy, sortDir, tagId, minPrice, maxPrice, inStock, hasPromotion);
 
                 return Ok(new
                 {

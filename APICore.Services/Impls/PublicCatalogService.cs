@@ -22,7 +22,10 @@ namespace APICore.Services.Impls
             _context = context;
         }
 
-        public async Task<IEnumerable<PublicLocationResponse>> GetLocationsAsync()
+        public async Task<IEnumerable<PublicLocationResponse>> GetLocationsAsync(
+            string? sortBy = null, string? sortDir = null,
+            double? lat = null, double? lng = null, double? radiusKm = null,
+            int? categoryId = null)
         {
             // IgnoreQueryFilters porque el usuario no está autenticado y los filtros
             // globales de multitenancy devolverían vacío (CurrentOrganizationId = -1).
@@ -30,9 +33,46 @@ namespace APICore.Services.Impls
                 .IgnoreQueryFilters()
                 .Include(l => l.Organization)
                 .Include(l => l.BusinessCategory)
-                .OrderBy(l => l.Organization!.Name)
-                .ThenBy(l => l.Name)
                 .ToListAsync();
+
+            // Pre-computar productCount y hasPromo por location
+            var locationIds = locations.Select(l => l.Id).ToList();
+            var orgIds = locations.Select(l => l.OrganizationId).Distinct().ToList();
+
+            var inventoryCounts = await _context.Inventories
+                .IgnoreQueryFilters()
+                .Where(i => locationIds.Contains(i.LocationId))
+                .GroupBy(i => i.LocationId)
+                .Select(g => new { LocationId = g.Key, Count = g.Select(i => i.ProductId).Distinct().Count() })
+                .ToDictionaryAsync(x => x.LocationId, x => x.Count);
+
+            var elaboradoOfferCounts = await _context.ProductLocationOffers
+                .IgnoreQueryFilters()
+                .Where(o => locationIds.Contains(o.LocationId))
+                .GroupBy(o => o.LocationId)
+                .Select(g => new { LocationId = g.Key, Count = g.Select(o => o.ProductId).Distinct().Count() })
+                .ToDictionaryAsync(x => x.LocationId, x => x.Count);
+
+            var nowUtc = DateTime.UtcNow;
+            var activePromoProductIds = await _context.Promotions
+                .IgnoreQueryFilters()
+                .Where(p => p.IsActive
+                    && p.MinQuantity <= 1
+                    && (!p.StartsAt.HasValue || p.StartsAt.Value <= nowUtc)
+                    && (!p.EndsAt.HasValue || p.EndsAt.Value >= nowUtc))
+                .Select(p => p.ProductId)
+                .Distinct()
+                .ToListAsync();
+            var activePromoSet = activePromoProductIds.ToHashSet();
+
+            // Productos con promo activa por location (via inventario)
+            var promoByLocation = await _context.Inventories
+                .IgnoreQueryFilters()
+                .Where(i => locationIds.Contains(i.LocationId) && activePromoSet.Contains(i.ProductId))
+                .Select(i => i.LocationId)
+                .Distinct()
+                .ToListAsync();
+            var locationsWithPromo = promoByLocation.ToHashSet();
 
             // Usamos hora local del servidor para el cálculo de isOpenNow.
             var now = DateTime.Now;
@@ -47,6 +87,9 @@ namespace APICore.Services.Impls
                         Lng = l.Longitude.Value
                     }
                     : null;
+
+                inventoryCounts.TryGetValue(l.Id, out var invCount);
+                elaboradoOfferCounts.TryGetValue(l.Id, out var elabCount);
 
                 return new PublicLocationResponse
                 {
@@ -63,12 +106,51 @@ namespace APICore.Services.Impls
                     BusinessHours = businessHours,
                     Coordinates = coordinates,
                     IsOpenNow = CalculateIsOpenNow(businessHours, now),
+                    IsVerified = l.IsVerified,
+                    OffersDelivery = l.OffersDelivery,
+                    OffersPickup = l.OffersPickup,
+                    DeliveryHours = DeserializeBusinessHours(l.DeliveryHoursJson),
+                    PickupHours = DeserializeBusinessHours(l.PickupHoursJson),
+                    CreatedAt = l.CreatedAt,
+                    ProductCount = invCount + elabCount,
+                    HasPromo = locationsWithPromo.Contains(l.Id),
                     BusinessCategoryId = l.BusinessCategoryId,
                     BusinessCategory = l.BusinessCategory != null
                         ? new BusinessCategorySummaryDto { Name = l.BusinessCategory.Name, Icon = l.BusinessCategory.Icon }
                         : null,
                 };
             }).ToList();
+
+            // Filtro por categoría
+            if (categoryId.HasValue)
+                result = result.Where(r => r.BusinessCategoryId == categoryId.Value).ToList();
+
+            // Filtro geográfico por radio (bounding box + haversine)
+            if (lat.HasValue && lng.HasValue && radiusKm.HasValue && radiusKm.Value > 0)
+            {
+                result = result.Where(r =>
+                {
+                    if (r.Coordinates == null) return false;
+                    var dist = HaversineKm(lat.Value, lng.Value, r.Coordinates.Lat, r.Coordinates.Lng);
+                    return dist <= radiusKm.Value;
+                }).ToList();
+            }
+
+            // Sorting
+            var dir = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase) ? "asc" : "desc";
+            result = (sortBy?.ToLowerInvariant()) switch
+            {
+                "newest" => dir == "asc"
+                    ? result.OrderBy(r => r.CreatedAt).ToList()
+                    : result.OrderByDescending(r => r.CreatedAt).ToList(),
+                "name" => dir == "desc"
+                    ? result.OrderByDescending(r => r.Name).ToList()
+                    : result.OrderBy(r => r.Name).ToList(),
+                "productcount" => dir == "asc"
+                    ? result.OrderBy(r => r.ProductCount).ToList()
+                    : result.OrderByDescending(r => r.ProductCount).ToList(),
+                _ => result.OrderBy(r => r.Name).ToList(),
+            };
 
             return result;
         }
@@ -156,7 +238,11 @@ namespace APICore.Services.Impls
             return result;
         }
 
-        public async Task<PublicCatalogPaginatedResponse> GetCatalogAllAsync(int page, int pageSize)
+        public async Task<PublicCatalogPaginatedResponse> GetCatalogAllAsync(
+            int page, int pageSize,
+            string? sortBy = null, string? sortDir = null,
+            int? tagId = null, decimal? minPrice = null, decimal? maxPrice = null,
+            bool? inStock = null, bool? hasPromotion = null)
         {
             if (page < 1)
             {
@@ -323,13 +409,44 @@ namespace APICore.Services.Impls
                 }
             }
 
-            var total = allItems.Count;
+            // Filtrado server-side
+            IEnumerable<PublicCatalogItemResponse> filtered = allItems;
+
+            if (tagId.HasValue)
+                filtered = filtered.Where(i => i.Tags.Any(t => t.Id == tagId.Value));
+            if (minPrice.HasValue)
+                filtered = filtered.Where(i => i.Precio >= minPrice.Value);
+            if (maxPrice.HasValue)
+                filtered = filtered.Where(i => i.Precio <= maxPrice.Value);
+            if (inStock == true)
+                filtered = filtered.Where(i => i.Tipo == "elaborado" || i.StockAtLocation > 0);
+            if (hasPromotion == true)
+                filtered = filtered.Where(i => i.HasActivePromotion);
+
+            var filteredList = filtered.ToList();
+
+            // Sorting server-side
+            var ascending = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+            filteredList = (sortBy?.ToLowerInvariant()) switch
+            {
+                "price" => ascending
+                    ? filteredList.OrderBy(i => i.Precio).ToList()
+                    : filteredList.OrderByDescending(i => i.Precio).ToList(),
+                "name" => ascending
+                    ? filteredList.OrderBy(i => i.Name).ToList()
+                    : filteredList.OrderByDescending(i => i.Name).ToList(),
+                "newest" => ascending
+                    ? filteredList.OrderBy(i => i.Id).ToList()
+                    : filteredList.OrderByDescending(i => i.Id).ToList(),
+                "promo" => filteredList.OrderByDescending(i => i.HasActivePromotion).ThenBy(i => i.Name).ToList(),
+                _ => filteredList.OrderBy(i => i.Name).ThenBy(i => i.LocationName).ToList(),
+            };
+
+            var total = filteredList.Count;
             var totalPages = (int)Math.Ceiling(total / (double)pageSize);
             var skip = (page - 1) * pageSize;
 
-            var pagedItems = allItems
-                .OrderBy(i => i.Name)
-                .ThenBy(i => i.LocationName)
+            var pagedItems = filteredList
                 .Skip(skip)
                 .Take(pageSize)
                 .ToList();
@@ -514,6 +631,17 @@ namespace APICore.Services.Impls
             }
 
             return Math.Max(0, promotion.Value);
+        }
+
+        private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
+        {
+            const double R = 6371.0;
+            var dLat = (lat2 - lat1) * Math.PI / 180.0;
+            var dLon = (lon2 - lon1) * Math.PI / 180.0;
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+                  + Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0)
+                  * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            return R * 2.0 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
         }
     }
 }

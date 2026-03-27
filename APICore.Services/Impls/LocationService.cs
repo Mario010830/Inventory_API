@@ -64,6 +64,11 @@ namespace APICore.Services.Impls
                 BusinessHoursJson = SerializeBusinessHours(request.BusinessHours),
                 Latitude = request.Coordinates?.Lat,
                 Longitude = request.Coordinates?.Lng,
+                IsVerified = request.IsVerified,
+                OffersDelivery = request.OffersDelivery,
+                OffersPickup = request.OffersPickup,
+                DeliveryHoursJson = SerializeBusinessHours(request.DeliveryHours),
+                PickupHoursJson = SerializeBusinessHours(request.PickupHours),
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
@@ -182,6 +187,17 @@ namespace APICore.Services.Impls
                 location.Longitude = request.Coordinates.Lng;
             }
 
+            if (request.IsVerified.HasValue)
+                location.IsVerified = request.IsVerified.Value;
+            if (request.OffersDelivery.HasValue)
+                location.OffersDelivery = request.OffersDelivery.Value;
+            if (request.OffersPickup.HasValue)
+                location.OffersPickup = request.OffersPickup.Value;
+            if (request.DeliveryHours != null)
+                location.DeliveryHoursJson = SerializeBusinessHours(request.DeliveryHours);
+            if (request.PickupHours != null)
+                location.PickupHoursJson = SerializeBusinessHours(request.PickupHours);
+
             if (request.BusinessCategoryId != null)
             {
                 if (request.BusinessCategoryId.Value <= 0)
@@ -224,6 +240,11 @@ namespace APICore.Services.Impls
                 BusinessHours = businessHours,
                 Coordinates = coordinates,
                 IsOpenNow = isOpenNow,
+                IsVerified = location.IsVerified,
+                OffersDelivery = location.OffersDelivery,
+                OffersPickup = location.OffersPickup,
+                DeliveryHours = DeserializeBusinessHours(location.DeliveryHoursJson),
+                PickupHours = DeserializeBusinessHours(location.PickupHoursJson),
                 BusinessCategoryId = location.BusinessCategoryId,
                 BusinessCategory = location.BusinessCategory != null
                     ? new BusinessCategorySummaryDto

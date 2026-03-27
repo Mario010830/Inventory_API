@@ -19,6 +19,13 @@ namespace APICore.Common.DTO.Request
         public PublicLocationBusinessHoursRequest? BusinessHours { get; set; }
         /// <summary>Coordenadas opcionales para mapa. null = sin mapa.</summary>
         public PublicLocationCoordinatesRequest? Coordinates { get; set; }
+        public bool IsVerified { get; set; }
+        public bool OffersDelivery { get; set; } = true;
+        public bool OffersPickup { get; set; } = true;
+        /// <summary>Horario de domicilio opcional. null = usa BusinessHours.</summary>
+        public PublicLocationBusinessHoursRequest? DeliveryHours { get; set; }
+        /// <summary>Horario de recogida opcional. null = usa BusinessHours.</summary>
+        public PublicLocationBusinessHoursRequest? PickupHours { get; set; }
     }
 
     public class PublicLocationBusinessHoursRequest
