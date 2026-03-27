@@ -323,6 +323,8 @@ namespace APICore.Services.Impls
                 .ThenInclude(s => s.Plan)
                 .Include(o => o.Subscription!)
                 .ThenInclude(s => s.Organization)
+                .ThenInclude(o => o.Users)
+                .ThenInclude(u => u.Role)
                 .FirstOrDefaultAsync(o => o.Id == organizationId);
             if (org?.Subscription == null)
                 throw new SubscriptionNotFoundException();
@@ -335,6 +337,8 @@ namespace APICore.Services.Impls
             var query = _context.Subscriptions.IgnoreQueryFilters()
                 .Include(s => s.Plan)
                 .Include(s => s.Organization)
+                .ThenInclude(o => o.Users)
+                .ThenInclude(u => u.Role)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(statusFilter) && !string.Equals(statusFilter, "all", StringComparison.OrdinalIgnoreCase))
@@ -355,6 +359,8 @@ namespace APICore.Services.Impls
             var sub = await _context.Subscriptions.IgnoreQueryFilters()
                 .Include(s => s.Plan)
                 .Include(s => s.Organization)
+                .ThenInclude(o => o.Users)
+                .ThenInclude(u => u.Role)
                 .FirstOrDefaultAsync(s => s.Id == id);
             if (sub == null)
                 throw new SubscriptionNotFoundException();
@@ -368,6 +374,8 @@ namespace APICore.Services.Impls
                 .ThenInclude(s => s.Plan)
                 .Include(r => r.Subscription)
                 .ThenInclude(s => s.Organization)
+                .ThenInclude(o => o.Users)
+                .ThenInclude(u => u.Role)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(statusFilter) && !string.Equals(statusFilter, "all", StringComparison.OrdinalIgnoreCase))
@@ -387,6 +395,8 @@ namespace APICore.Services.Impls
                 .ThenInclude(s => s.Plan)
                 .Include(r => r.Subscription)
                 .ThenInclude(s => s.Organization)
+                .ThenInclude(o => o.Users)
+                .ThenInclude(u => u.Role)
                 .FirstOrDefaultAsync(r => r.Id == id);
             if (req == null)
                 throw new SubscriptionRequestNotFoundException();
@@ -399,6 +409,8 @@ namespace APICore.Services.Impls
                 .ThenInclude(s => s.Plan)
                 .Include(r => r.Subscription)
                 .ThenInclude(s => s.Organization)
+                .ThenInclude(o => o.Users)
+                .ThenInclude(u => u.Role)
                 .FirstAsync(r => r.Id == id);
 
         private static void EnsureValidBillingCycle(string cycle)
@@ -420,6 +432,16 @@ namespace APICore.Services.Impls
         private static SubscriptionResponse ToSubscriptionResponse(Subscription s)
         {
             var days = SubscriptionDisplayHelper.ComputeDaysRemaining(s.StartDate, s.EndDate, s.BillingCycle, s.Plan?.Name, DateTime.UtcNow);
+            var adminContact = s.Organization?.Users?
+                .OrderBy(u => u.Role != null && u.Role.Name == RoleNames.Admin ? 0 : 1)
+                .ThenBy(u => u.Id)
+                .Select(u => new SubscriptionAdminContactResponse
+                {
+                    UserId = u.Id,
+                    FullName = u.FullName,
+                    Phone = u.Phone
+                })
+                .FirstOrDefault();
             return new SubscriptionResponse
             {
                 Id = s.Id,
@@ -454,6 +476,7 @@ namespace APICore.Services.Impls
                         CreatedAt = s.Organization.CreatedAt,
                         ModifiedAt = s.Organization.ModifiedAt,
                     },
+                AdminContact = adminContact,
             };
         }
     }

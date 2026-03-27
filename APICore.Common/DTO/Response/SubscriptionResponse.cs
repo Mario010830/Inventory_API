@@ -12,6 +12,8 @@ namespace APICore.Common.DTO.Response
         public PlanResponse? Plan { get; set; }
         /// <summary>Poblado en listados/detalle admin; puede ser null en otros contextos.</summary>
         public OrganizationResponse? Organization { get; set; }
+        /// <summary>Contacto mínimo del admin de la organización (si existe).</summary>
+        public SubscriptionAdminContactResponse? AdminContact { get; set; }
         /// <summary>Días hasta el fin del periodo actual. -1 = ilimitado (plan free).</summary>
         public int DaysRemaining { get; set; }
     }

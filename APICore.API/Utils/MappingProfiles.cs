@@ -1,5 +1,6 @@
 using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
+using APICore.Common.Constants;
 using APICore.Common.Helpers;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
@@ -144,7 +145,20 @@ namespace APICore.API.Utils
             CreateMap<Subscription, SubscriptionResponse>()
                 .ForMember(d => d.DaysRemaining, opts => opts.MapFrom(s => SubscriptionDisplayHelper.ComputeDaysRemaining(s.StartDate, s.EndDate, s.BillingCycle, s.Plan != null ? s.Plan.Name : null, DateTime.UtcNow)))
                 .ForMember(d => d.Plan, opts => opts.MapFrom(s => s.Plan))
-                .ForMember(d => d.Organization, opts => opts.MapFrom(s => s.Organization));
+                .ForMember(d => d.Organization, opts => opts.MapFrom(s => s.Organization))
+                .ForMember(d => d.AdminContact, opts => opts.MapFrom(s =>
+                    s.Organization == null || s.Organization.Users == null
+                        ? null
+                        : s.Organization.Users
+                            .OrderBy(u => u.Role != null && u.Role.Name == RoleNames.Admin ? 0 : 1)
+                            .ThenBy(u => u.Id)
+                            .Select(u => new SubscriptionAdminContactResponse
+                            {
+                                UserId = u.Id,
+                                FullName = u.FullName,
+                                Phone = u.Phone
+                            })
+                            .FirstOrDefault()));
             CreateMap<SubscriptionRequest, SubscriptionRequestResponse>()
                 .ForMember(d => d.Subscription, opts => opts.MapFrom(r => r.Subscription))
                 .ForMember(d => d.Organization, opts => opts.MapFrom(r => r.Subscription != null ? r.Subscription.Organization : null));
