@@ -62,10 +62,6 @@ namespace APICore.Tests.Unit.PublicCatalog
                     friday = new { open = "08:00", close = "20:00" },
                     saturday = new { open = "09:00", close = "14:00" },
                 }),
-                DeliveryHoursJson = JsonSerializer.Serialize(new
-                {
-                    monday = new { open = "10:00", close = "18:00" },
-                }),
                 CreatedAt = Now.AddDays(-10), ModifiedAt = Now,
             });
 
@@ -139,16 +135,14 @@ namespace APICore.Tests.Unit.PublicCatalog
 
             var a = result.First(l => l.Id == 1);
             Assert.True(a.IsVerified);
-            Assert.True(a.OffersDelivery);
-            Assert.False(a.OffersPickup);
-            Assert.NotNull(a.DeliveryHours);
-            Assert.Null(a.PickupHours);
+            Assert.Equal(a.IsOpenNow && true, a.OffersDelivery);
+            Assert.Equal(a.IsOpenNow && false, a.OffersPickup);
             Assert.True(a.CreatedAt < DateTime.UtcNow);
 
             var b = result.First(l => l.Id == 2);
             Assert.False(b.IsVerified);
-            Assert.False(b.OffersDelivery);
-            Assert.True(b.OffersPickup);
+            Assert.Equal(b.IsOpenNow && false, b.OffersDelivery);
+            Assert.Equal(b.IsOpenNow && true, b.OffersPickup);
         }
 
         [Fact]

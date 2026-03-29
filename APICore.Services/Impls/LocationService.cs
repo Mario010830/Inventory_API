@@ -67,8 +67,6 @@ namespace APICore.Services.Impls
                 IsVerified = request.IsVerified,
                 OffersDelivery = request.OffersDelivery,
                 OffersPickup = request.OffersPickup,
-                DeliveryHoursJson = SerializeBusinessHours(request.DeliveryHours),
-                PickupHoursJson = SerializeBusinessHours(request.PickupHours),
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
@@ -193,10 +191,6 @@ namespace APICore.Services.Impls
                 location.OffersDelivery = request.OffersDelivery.Value;
             if (request.OffersPickup.HasValue)
                 location.OffersPickup = request.OffersPickup.Value;
-            if (request.DeliveryHours != null)
-                location.DeliveryHoursJson = SerializeBusinessHours(request.DeliveryHours);
-            if (request.PickupHours != null)
-                location.PickupHoursJson = SerializeBusinessHours(request.PickupHours);
 
             if (request.BusinessCategoryId != null)
             {
@@ -241,10 +235,8 @@ namespace APICore.Services.Impls
                 Coordinates = coordinates,
                 IsOpenNow = isOpenNow,
                 IsVerified = location.IsVerified,
-                OffersDelivery = location.OffersDelivery,
-                OffersPickup = location.OffersPickup,
-                DeliveryHours = DeserializeBusinessHours(location.DeliveryHoursJson),
-                PickupHours = DeserializeBusinessHours(location.PickupHoursJson),
+                OffersDelivery = location.OffersDelivery && isOpenNow,
+                OffersPickup = location.OffersPickup && isOpenNow,
                 BusinessCategoryId = location.BusinessCategoryId,
                 BusinessCategory = location.BusinessCategory != null
                     ? new BusinessCategorySummaryDto

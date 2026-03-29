@@ -91,6 +91,8 @@ namespace APICore.Services.Impls
                 inventoryCounts.TryGetValue(l.Id, out var invCount);
                 elaboradoOfferCounts.TryGetValue(l.Id, out var elabCount);
 
+                var isOpenNow = CalculateIsOpenNow(businessHours, now);
+
                 return new PublicLocationResponse
                 {
                     Id = l.Id,
@@ -105,12 +107,10 @@ namespace APICore.Services.Impls
                     Street = l.Street,
                     BusinessHours = businessHours,
                     Coordinates = coordinates,
-                    IsOpenNow = CalculateIsOpenNow(businessHours, now),
+                    IsOpenNow = isOpenNow,
                     IsVerified = l.IsVerified,
-                    OffersDelivery = l.OffersDelivery,
-                    OffersPickup = l.OffersPickup,
-                    DeliveryHours = DeserializeBusinessHours(l.DeliveryHoursJson),
-                    PickupHours = DeserializeBusinessHours(l.PickupHoursJson),
+                    OffersDelivery = l.OffersDelivery && isOpenNow,
+                    OffersPickup = l.OffersPickup && isOpenNow,
                     CreatedAt = l.CreatedAt,
                     ProductCount = invCount + elabCount,
                     HasPromo = locationsWithPromo.Contains(l.Id),

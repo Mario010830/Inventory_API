@@ -22,12 +22,10 @@ namespace APICore.Common.DTO.Response
         /// <summary>Indica si el local está abierto "ahora mismo" según la hora UTC del servidor.</summary>
         public bool IsOpenNow { get; set; }
         public bool IsVerified { get; set; }
+        /// <summary>Disponible para domicilio; en respuestas API es falso si la tienda está cerrada ahora (<see cref="IsOpenNow"/>).</summary>
         public bool OffersDelivery { get; set; }
+        /// <summary>Disponible para recogida; en respuestas API es falso si la tienda está cerrada ahora (<see cref="IsOpenNow"/>).</summary>
         public bool OffersPickup { get; set; }
-        /// <summary>Horario específico de domicilio. null = usa BusinessHours.</summary>
-        public PublicLocationBusinessHoursDto? DeliveryHours { get; set; }
-        /// <summary>Horario específico de recogida. null = usa BusinessHours.</summary>
-        public PublicLocationBusinessHoursDto? PickupHours { get; set; }
         public DateTime CreatedAt { get; set; }
         /// <summary>Cantidad de productos disponibles en esta ubicación.</summary>
         public int ProductCount { get; set; }

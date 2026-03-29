@@ -30,8 +30,6 @@ namespace APICore.Data.Entities
         public bool IsVerified { get; set; }
         public bool OffersDelivery { get; set; } = true;
         public bool OffersPickup { get; set; } = true;
-        public string? DeliveryHoursJson { get; set; }
-        public string? PickupHoursJson { get; set; }
 
         public int? BusinessCategoryId { get; set; }
         public virtual BusinessCategory? BusinessCategory { get; set; }
