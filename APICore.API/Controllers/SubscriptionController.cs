@@ -88,6 +88,7 @@ namespace APICore.API.Controllers
             return Ok(new ApiOkResponse(_mapper.Map<SubscriptionRequestResponse>(req)));
         }
 
+        /// <summary>Aprueba solicitud pendiente o corrige un rechazo erróneo (misma solicitud en rejected + suscripción rejected).</summary>
         [HttpPost("requests/{id:int}/approve")]
         [RequirePermission(PermissionCodes.SubscriptionManage)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
@@ -108,7 +109,7 @@ namespace APICore.API.Controllers
             return Ok(new ApiOkResponse(_mapper.Map<SubscriptionRequestResponse>(req)));
         }
 
-        /// <summary>Cancela una suscripción ya activa (distinto de rechazar solicitud pendiente). La organización queda inactiva.</summary>
+        
         [HttpPost("{id:int}/cancel")]
         [RequirePermission(PermissionCodes.SubscriptionManage)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]

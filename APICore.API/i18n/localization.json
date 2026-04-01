@@ -342,8 +342,8 @@
   {
     "Key": "400402",
     "LocalizedValue": {
-      "en-US": "The subscription request is not in pending status.",
-      "es-ES": "La solicitud no está en estado pendiente."
+      "en-US": "The subscription request cannot be approved or processed in its current state.",
+      "es-ES": "La solicitud de suscripción no se puede aprobar o procesar en su estado actual."
     }
   },
   {

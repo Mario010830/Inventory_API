@@ -121,12 +121,18 @@ namespace APICore.Services.Impls
                 .FirstOrDefaultAsync(r => r.Id == requestId);
             if (req == null)
                 throw new SubscriptionRequestNotFoundException();
-            if (req.Status != SubscriptionRequestStatus.Pending)
-                throw new SubscriptionRequestInvalidStateBadRequestException();
 
             var sub = req.Subscription;
             if (sub == null)
                 throw new SubscriptionNotFoundException();
+
+            var approveNew = req.Status == SubscriptionRequestStatus.Pending && sub.Status == SubscriptionStatus.Pending;
+            var approveAfterReject = req.Status == SubscriptionRequestStatus.Rejected && sub.Status == SubscriptionStatus.Rejected;
+            if (!approveNew && !approveAfterReject)
+            {
+                throw new SubscriptionRequestInvalidStateBadRequestException(
+                    "Solo se puede aprobar una solicitud pendiente o una solicitud rechazada por error (misma suscripción en estado rechazado).");
+            }
 
             var now = DateTime.UtcNow;
             req.Status = SubscriptionRequestStatus.Approved;
