@@ -5,5 +5,6 @@ namespace APICore.Common.Constants
         public const string New = "new";
         public const string Renewal = "renewal";
         public const string PlanChange = "plan_change";
+        public const string Cancellation = "cancellation";
     }
 }

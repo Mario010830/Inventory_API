@@ -12,6 +12,8 @@ namespace APICore.Services
         Task<SubscriptionRequest> CreatePaidSubscriptionRequestAsync(int organizationId, int planId, string billingCycle);
         Task<SubscriptionRequest> ApproveRequestAsync(int requestId, ApproveSubscriptionRequestDto dto, int reviewerUserId);
         Task<SubscriptionRequest> RejectRequestAsync(int requestId, RejectSubscriptionRequestDto dto, int reviewerUserId);
+        /// <summary>Cancela una suscripción ya activa; deja la organización inactiva y registra auditoría.</summary>
+        Task<Subscription> CancelSubscriptionAsync(int subscriptionId, CancelSubscriptionRequestDto dto, int reviewerUserId);
         Task<Subscription> RenewSubscriptionAsync(int subscriptionId, RenewSubscriptionRequest dto, int reviewerUserId);
         Task<Subscription> ChangePlanAsync(int subscriptionId, ChangePlanRequest dto, int reviewerUserId);
         Task CheckAndExpireSubscriptionsAsync();

@@ -389,6 +389,20 @@
     }
   },
   {
+    "Key": "400409",
+    "LocalizedValue": {
+      "en-US": "Only a pending subscription payment request can be rejected.",
+      "es-ES": "Solo se puede rechazar una suscripción pendiente de aprobación."
+    }
+  },
+  {
+    "Key": "400410",
+    "LocalizedValue": {
+      "en-US": "Only an active subscription can be cancelled.",
+      "es-ES": "Solo se puede cancelar una suscripción activa."
+    }
+  },
+  {
     "Key": "400450",
     "LocalizedValue": {
       "en-US": "A currency with that code already exists.",

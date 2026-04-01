@@ -166,15 +166,76 @@ namespace APICore.Services.Impls
             if (req.Status != SubscriptionRequestStatus.Pending)
                 throw new SubscriptionRequestInvalidStateBadRequestException();
 
+            var sub = req.Subscription;
+            if (sub == null)
+                throw new SubscriptionNotFoundException();
+            if (sub.Status != SubscriptionStatus.Pending)
+                throw new SubscriptionInvalidStateBadRequestException(400409, "Solo se puede rechazar una suscripción pendiente de aprobación.");
+
             var now = DateTime.UtcNow;
             req.Status = SubscriptionRequestStatus.Rejected;
             req.Notes = dto.Notes;
             req.ReviewedByUserId = reviewerUserId;
             req.ReviewedAt = now;
+
+            sub.Status = SubscriptionStatus.Rejected;
+            sub.UpdatedAt = now;
+            _uow.SubscriptionRepository.Update(sub);
+
+            var org = sub.Organization;
+            if (org != null)
+            {
+                org.IsActive = false;
+                org.SubscriptionId = sub.Id;
+                _uow.OrganizationRepository.Update(org);
+            }
+
             _uow.SubscriptionRequestRepository.Update(req);
             await _uow.CommitAsync();
 
             return await ReloadSubscriptionRequestForMappingAsync(req.Id);
+        }
+
+        public async Task<Subscription> CancelSubscriptionAsync(int subscriptionId, CancelSubscriptionRequestDto dto, int reviewerUserId)
+        {
+            var sub = await _context.Subscriptions.IgnoreQueryFilters()
+                .Include(s => s.Organization)
+                .FirstOrDefaultAsync(s => s.Id == subscriptionId);
+            if (sub == null)
+                throw new SubscriptionNotFoundException();
+            if (sub.Status != SubscriptionStatus.Active)
+                throw new SubscriptionInvalidStateBadRequestException(400410, "Solo se puede cancelar una suscripción activa.");
+
+            var now = DateTime.UtcNow;
+            sub.Status = SubscriptionStatus.Cancelled;
+            sub.UpdatedAt = now;
+            _uow.SubscriptionRepository.Update(sub);
+
+            if (sub.Organization != null)
+            {
+                sub.Organization.IsActive = false;
+                sub.Organization.SubscriptionId = sub.Id;
+                _uow.OrganizationRepository.Update(sub.Organization);
+            }
+
+            var audit = new SubscriptionRequest
+            {
+                SubscriptionId = sub.Id,
+                Type = SubscriptionRequestType.Cancellation,
+                Status = SubscriptionRequestStatus.Approved,
+                Notes = dto.Notes,
+                ReviewedByUserId = reviewerUserId,
+                ReviewedAt = now,
+            };
+            await _uow.SubscriptionRequestRepository.AddAsync(audit);
+            await _uow.CommitAsync();
+
+            return await _context.Subscriptions.IgnoreQueryFilters()
+                .Include(s => s.Plan)
+                .Include(s => s.Organization)
+                .ThenInclude(o => o.Users)
+                .ThenInclude(u => u.Role)
+                .FirstAsync(s => s.Id == sub.Id);
         }
 
         public async Task<Subscription> RenewSubscriptionAsync(int subscriptionId, RenewSubscriptionRequest dto, int reviewerUserId)

@@ -108,6 +108,19 @@ namespace APICore.API.Controllers
             return Ok(new ApiOkResponse(_mapper.Map<SubscriptionRequestResponse>(req)));
         }
 
+        /// <summary>Cancela una suscripción ya activa (distinto de rechazar solicitud pendiente). La organización queda inactiva.</summary>
+        [HttpPost("{id:int}/cancel")]
+        [RequirePermission(PermissionCodes.SubscriptionManage)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        public async Task<IActionResult> CancelSubscription(int id, [FromBody] CancelSubscriptionRequestDto dto)
+        {
+            var reviewerId = User.GetUserIdFromToken();
+            var sub = await _subscriptionService.CancelSubscriptionAsync(id, dto, reviewerId);
+            return Ok(new ApiOkResponse(_mapper.Map<SubscriptionResponse>(sub)));
+        }
+
         [HttpPost("{id:int}/renew")]
         [RequirePermission(PermissionCodes.SubscriptionManage)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
