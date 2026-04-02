@@ -117,6 +117,7 @@ namespace APICore.API.Utils
                 PermissionCodes.RoleRead, PermissionCodes.RoleCreate, PermissionCodes.RoleUpdate, PermissionCodes.RoleDelete,
 
                 PermissionCodes.OrganizationRead, PermissionCodes.OrganizationCreate, PermissionCodes.OrganizationUpdate, PermissionCodes.OrganizationDelete,
+                PermissionCodes.OrganizationVerify,
 
                 PermissionCodes.LocationRead, PermissionCodes.LocationCreate, PermissionCodes.LocationUpdate, PermissionCodes.LocationDelete,
 
@@ -165,6 +166,8 @@ namespace APICore.API.Utils
                 var existingRolePerms = await uow.RolePermissionRepository.FindBy(rp => rp.RoleId == role.Id).ToListAsync();
                 foreach (var perm in allPerms)
                 {
+                    if (role.Id == adminRole.Id && string.Equals(perm.Code, PermissionCodes.OrganizationVerify, StringComparison.Ordinal))
+                        continue;
                     if (existingRolePerms.Any(rp => rp.PermissionId == perm.Id)) continue;
                     await uow.RolePermissionRepository.AddAsync(new RolePermission { RoleId = role.Id, PermissionId = perm.Id });
                 }

@@ -74,18 +74,8 @@ namespace APICore.API.Controllers
             return NoContent();
         }
 
-        [HttpGet("superadmin")]
-        [RequireSuperAdmin]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        [ProducesResponseType((int)HttpStatusCode.Forbidden)]
-        public async Task<IActionResult> GetOrganizationsForSuperAdmin(int? page, int? perPage, string sortOrder = null)
-        {
-            var organizations = await _organizationService.GetAllOrganizationsForSuperAdmin(page, perPage, sortOrder);
-            return Ok(new ApiOkPaginatedResponse(organizations, organizations.GetPaginationData));
-        }
-
-        [HttpPut("superadmin/verification")]
-        [RequireSuperAdmin]
+        [HttpPut("verification")]
+        [RequirePermission(PermissionCodes.OrganizationVerify)]
         [Consumes("application/json")]
         [ProducesResponseType((int)HttpStatusCode.NoContent)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]

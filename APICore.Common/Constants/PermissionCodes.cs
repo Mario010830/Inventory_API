@@ -47,6 +47,8 @@ namespace APICore.Common.Constants
         public const string OrganizationCreate = "organization.create";
         public const string OrganizationUpdate = "organization.update";
         public const string OrganizationDelete = "organization.delete";
+        /// <summary>Verificar organización y sus localizaciones (uso típico: solo superadmin en seed).</summary>
+        public const string OrganizationVerify = "organization.verify";
 
         public const string LocationRead = "location.read";
         public const string LocationCreate = "location.create";

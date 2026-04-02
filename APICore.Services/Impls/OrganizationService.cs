@@ -8,7 +8,6 @@ using APICore.Services.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -77,41 +76,34 @@ namespace APICore.Services.Impls
 
         public async Task<PaginatedList<OrganizationResponse>> GetAllOrganizations(int? page, int? perPage, string sortOrder = null)
         {
-            var query = _uow.OrganizationRepository.GetAll()
-                .Include(o => o.Locations)
-                    .ThenInclude(l => l.BusinessCategory)
-                .OrderBy(o => o.Code);
+            var query = _uow.OrganizationRepository.GetAll().OrderBy(o => o.Code);
             var pageIndex = page ?? 1;
             var perPageIndex = perPage ?? 10;
             var paged = await PaginatedList<Organization>.CreateAsync(query, pageIndex, perPageIndex);
-            var items = paged.ConvertAll(o => ToResponse(o, includeLocations: true));
+            var items = paged.ConvertAll(o => ToResponse(o));
             return new PaginatedList<OrganizationResponse>(items, paged.TotalItems, pageIndex, perPageIndex);
-        }
-
-        public Task<PaginatedList<OrganizationResponse>> GetAllOrganizationsForSuperAdmin(int? page, int? perPage, string sortOrder = null)
-        {
-            return GetAllOrganizations(page, perPage, sortOrder);
         }
 
         public async Task SetOrganizationVerification(int organizationId, bool isVerified)
         {
-            var organization = await _uow.OrganizationRepository.FirstOrDefaultAsync(o => o.Id == organizationId);
-            if (organization == null)
+            var exists = await _uow.OrganizationRepository.GetAll()
+                .AnyAsync(o => o.Id == organizationId);
+            if (!exists)
                 throw new OrganizationNotFoundException(_localizer);
 
             var now = DateTime.UtcNow;
-            var locations = await _uow.LocationRepository.FindBy(l => l.OrganizationId == organizationId).ToListAsync();
-            foreach (var loc in locations)
-            {
-                loc.IsVerified = isVerified;
-                loc.ModifiedAt = now;
-                _uow.LocationRepository.Update(loc);
-            }
 
-            organization.IsVerified = isVerified;
-            organization.ModifiedAt = now;
-            _uow.OrganizationRepository.Update(organization);
-            await _uow.CommitAsync();
+            await _uow.LocationRepository.FindBy(l => l.OrganizationId == organizationId)
+                .IgnoreQueryFilters()
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(l => l.IsVerified, isVerified)
+                    .SetProperty(l => l.ModifiedAt, now));
+
+            await _uow.OrganizationRepository.GetAll()
+                .Where(o => o.Id == organizationId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(o => o.IsVerified, isVerified)
+                    .SetProperty(o => o.ModifiedAt, now));
         }
 
         public async Task UpdateOrganization(int id, UpdateOrganizationRequest request)

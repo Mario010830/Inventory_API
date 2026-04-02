@@ -13,10 +13,7 @@ namespace APICore.Services
         Task<PaginatedList<OrganizationResponse>> GetAllOrganizations(int? page, int? perPage, string sortOrder = null);
         Task UpdateOrganization(int id, UpdateOrganizationRequest request);
 
-        /// <summary>Listado paginado de todas las organizaciones (uso panel superadmin).</summary>
-        Task<PaginatedList<OrganizationResponse>> GetAllOrganizationsForSuperAdmin(int? page, int? perPage, string sortOrder = null);
-
-        /// <summary>Establece verificación de la organización y replica el valor en todas sus localizaciones.</summary>
+        /// <summary>Establece <c>IsVerified</c> en la organización y en todas sus localizaciones.</summary>
         Task SetOrganizationVerification(int organizationId, bool isVerified);
     }
 }

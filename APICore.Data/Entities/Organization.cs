@@ -12,7 +12,7 @@ namespace APICore.Data.Entities
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// Verificación a nivel plataforma. Al cambiar, se sincroniza <see cref="Location.IsVerified"/> en todas las ubicaciones de la organización.
+        /// Verificación a nivel plataforma. Al actualizar vía API, se sincroniza en todas las <see cref="Location"/> de la organización.
         /// </summary>
         public bool IsVerified { get; set; }
 
