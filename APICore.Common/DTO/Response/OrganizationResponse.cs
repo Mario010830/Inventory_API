@@ -9,6 +9,7 @@ namespace APICore.Common.DTO.Response
         public string Name { get; set; }
         public string Code { get; set; }
         public string? Description { get; set; }
+        public bool IsVerified { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime ModifiedAt { get; set; }
         /// <summary>Localizaciones de la organización. Solo poblado en GET por id.</summary>

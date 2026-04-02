@@ -64,7 +64,7 @@ namespace APICore.Services.Impls
                 BusinessHoursJson = SerializeBusinessHours(request.BusinessHours),
                 Latitude = request.Coordinates?.Lat,
                 Longitude = request.Coordinates?.Lng,
-                IsVerified = request.IsVerified,
+                IsVerified = organization.IsVerified,
                 OffersDelivery = request.OffersDelivery,
                 OffersPickup = request.OffersPickup,
                 CreatedAt = DateTime.UtcNow,

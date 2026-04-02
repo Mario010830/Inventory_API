@@ -8,6 +8,7 @@ using APICore.Services.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -37,6 +38,7 @@ namespace APICore.Services.Impls
                 Name = request.Name,
                 Code = request.Code.Trim(),
                 Description = request.Description?.Trim(),
+                IsVerified = false,
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
@@ -83,6 +85,32 @@ namespace APICore.Services.Impls
             return new PaginatedList<OrganizationResponse>(items, paged.TotalItems, pageIndex, perPageIndex);
         }
 
+        public Task<PaginatedList<OrganizationResponse>> GetAllOrganizationsForSuperAdmin(int? page, int? perPage, string sortOrder = null)
+        {
+            return GetAllOrganizations(page, perPage, sortOrder);
+        }
+
+        public async Task SetOrganizationVerification(int organizationId, bool isVerified)
+        {
+            var organization = await _uow.OrganizationRepository.FirstOrDefaultAsync(o => o.Id == organizationId);
+            if (organization == null)
+                throw new OrganizationNotFoundException(_localizer);
+
+            var now = DateTime.UtcNow;
+            var locations = await _uow.LocationRepository.FindBy(l => l.OrganizationId == organizationId).ToListAsync();
+            foreach (var loc in locations)
+            {
+                loc.IsVerified = isVerified;
+                loc.ModifiedAt = now;
+                _uow.LocationRepository.Update(loc);
+            }
+
+            organization.IsVerified = isVerified;
+            organization.ModifiedAt = now;
+            _uow.OrganizationRepository.Update(organization);
+            await _uow.CommitAsync();
+        }
+
         public async Task UpdateOrganization(int id, UpdateOrganizationRequest request)
         {
             var organization = await _uow.OrganizationRepository.FirstOrDefaultAsync(o => o.Id == id);
@@ -115,6 +143,7 @@ namespace APICore.Services.Impls
                 Name = organization.Name,
                 Code = organization.Code,
                 Description = organization.Description,
+                IsVerified = organization.IsVerified,
                 CreatedAt = organization.CreatedAt,
                 ModifiedAt = organization.ModifiedAt,
             };
@@ -134,6 +163,7 @@ namespace APICore.Services.Impls
                         BusinessCategory = l.BusinessCategory != null
                             ? new BusinessCategorySummaryDto { Name = l.BusinessCategory.Name, Icon = l.BusinessCategory.Icon }
                             : null,
+                        IsVerified = l.IsVerified,
                         CreatedAt = l.CreatedAt,
                         ModifiedAt = l.ModifiedAt,
                     })
