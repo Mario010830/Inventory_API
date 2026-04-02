@@ -91,21 +91,13 @@ namespace APICore.API.Controllers
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
         [ProducesResponseType((int)HttpStatusCode.Forbidden)]
-        public async Task<IActionResult> SetOrganizationVerification(
-            int id,
-            [FromBody] SetOrganizationVerificationRequest? request,
-            [FromQuery] bool? isVerified = null)
+        public async Task<IActionResult> SetOrganizationVerification([FromBody] SetOrganizationVerificationRequest? request)
         {
-            bool verified;
-            if (request != null)
-                verified = request.IsVerified;
-            else if (isVerified.HasValue)
-                verified = isVerified.Value;
-            else
+            if (request == null || request.OrganizationId <= 0)
                 return BadRequest(new ApiBadRequestResponse(
-                    "Cuerpo JSON inválido o vacío. Use Content-Type: application/json y {\"isVerified\": true}, o ?isVerified=true en la query."));
+                    "Cuerpo JSON requerido: { \"organizationId\": <número>, \"isVerified\": true|false } con Content-Type: application/json."));
 
-            await _organizationService.SetOrganizationVerification(id, verified);
+            await _organizationService.SetOrganizationVerification(request.OrganizationId, request.IsVerified);
             return NoContent();
         }
     }

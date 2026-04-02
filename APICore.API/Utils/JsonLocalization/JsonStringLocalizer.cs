@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Localization;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Globalization;
@@ -13,9 +13,9 @@ namespace APICore.API.Utils.JsonLocalization
 
         public JsonStringLocalizer()
         {
-          
             JsonSerializer serializer = new JsonSerializer();
-            localization = JsonConvert.DeserializeObject<List<JsonLocalization>>(File.ReadAllText(@"i18n/localization.json"));
+            localization = JsonConvert.DeserializeObject<List<JsonLocalization>>(File.ReadAllText(@"i18n/localization.json"))
+                ?? new List<JsonLocalization>();
         }
 
         public LocalizedString this[string name]
@@ -39,7 +39,10 @@ namespace APICore.API.Utils.JsonLocalization
 
         public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures)
         {
-            return localization.Where(l => l.LocalizedValue.Keys.Any(lv => lv == CultureInfo.CurrentCulture.Name)).Select(l => new LocalizedString(l.Key, l.LocalizedValue[CultureInfo.CurrentCulture.Name], true));
+            var culture = CultureInfo.CurrentCulture.Name;
+            return localization
+                .Where(l => l?.LocalizedValue != null && l.LocalizedValue.ContainsKey(culture))
+                .Select(l => new LocalizedString(l.Key, l.LocalizedValue[culture], true));
         }
 
         public IStringLocalizer WithCulture(CultureInfo culture)
@@ -49,9 +52,17 @@ namespace APICore.API.Utils.JsonLocalization
 
         private string GetString(string name)
         {
-            var query = localization.Where(l => l.LocalizedValue.Keys.Any(lv => lv == CultureInfo.CurrentCulture.Name));
-            var value = query.FirstOrDefault(l => l.Key == name);
-            return value.LocalizedValue[CultureInfo.CurrentCulture.Name];
+            if (string.IsNullOrEmpty(name) || localization == null)
+                return null;
+            var culture = CultureInfo.CurrentCulture.Name;
+            var value = localization.FirstOrDefault(l =>
+                l != null
+                && l.Key == name
+                && l.LocalizedValue != null
+                && l.LocalizedValue.ContainsKey(culture));
+            if (value?.LocalizedValue == null || !value.LocalizedValue.TryGetValue(culture, out var text))
+                return null;
+            return text;
         }
     }
 }

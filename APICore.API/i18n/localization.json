@@ -249,6 +249,13 @@
     }
   },
   {
+    "Key": "404022",
+    "LocalizedValue": {
+      "en-US": "Organization not found.",
+      "es-ES": "Organización no encontrada."
+    }
+  },
+  {
     "Key": "404030",
     "LocalizedValue": {
       "en-US": "Contact not found.",
