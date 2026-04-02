@@ -86,12 +86,26 @@ namespace APICore.API.Controllers
 
         [HttpPut("superadmin/verification")]
         [RequireSuperAdmin]
+        [Consumes("application/json")]
         [ProducesResponseType((int)HttpStatusCode.NoContent)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
         [ProducesResponseType((int)HttpStatusCode.Forbidden)]
-        public async Task<IActionResult> SetOrganizationVerification(int id, [FromBody] SetOrganizationVerificationRequest request)
+        public async Task<IActionResult> SetOrganizationVerification(
+            int id,
+            [FromBody] SetOrganizationVerificationRequest? request,
+            [FromQuery] bool? isVerified = null)
         {
-            await _organizationService.SetOrganizationVerification(id, request.IsVerified);
+            bool verified;
+            if (request != null)
+                verified = request.IsVerified;
+            else if (isVerified.HasValue)
+                verified = isVerified.Value;
+            else
+                return BadRequest(new ApiBadRequestResponse(
+                    "Cuerpo JSON inválido o vacío. Use Content-Type: application/json y {\"isVerified\": true}, o ?isVerified=true en la query."));
+
+            await _organizationService.SetOrganizationVerification(id, verified);
             return NoContent();
         }
     }
