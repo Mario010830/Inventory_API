@@ -77,11 +77,14 @@ namespace APICore.Services.Impls
 
         public async Task<PaginatedList<OrganizationResponse>> GetAllOrganizations(int? page, int? perPage, string sortOrder = null)
         {
-            var query = _uow.OrganizationRepository.GetAll().OrderBy(o => o.Code);
+            var query = _uow.OrganizationRepository.GetAll()
+                .Include(o => o.Locations)
+                    .ThenInclude(l => l.BusinessCategory)
+                .OrderBy(o => o.Code);
             var pageIndex = page ?? 1;
             var perPageIndex = perPage ?? 10;
             var paged = await PaginatedList<Organization>.CreateAsync(query, pageIndex, perPageIndex);
-            var items = paged.ConvertAll(o => ToResponse(o));
+            var items = paged.ConvertAll(o => ToResponse(o, includeLocations: true));
             return new PaginatedList<OrganizationResponse>(items, paged.TotalItems, pageIndex, perPageIndex);
         }
 

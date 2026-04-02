@@ -12,7 +12,7 @@ namespace APICore.Common.DTO.Response
         public bool IsVerified { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime ModifiedAt { get; set; }
-        /// <summary>Localizaciones de la organización. Solo poblado en GET por id.</summary>
+        /// <summary>Localizaciones de la organización (listado paginado y GET por id). Sujetas al filtro de tenant del usuario.</summary>
         public List<LocationResponse> Locations { get; set; } = new List<LocationResponse>();
     }
 }
