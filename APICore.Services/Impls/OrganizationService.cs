@@ -52,15 +52,30 @@ namespace APICore.Services.Impls
 
         public async Task DeleteOrganization(int id)
         {
-            var organization = await _uow.OrganizationRepository.FirstOrDefaultAsync(o => o.Id == id);
-            if (organization == null)
+            var exists = await _uow.OrganizationRepository
+                .FindBy(o => o.Id == id)
+                .AnyAsync();
+                
+            if (!exists)
                 throw new OrganizationNotFoundException(_localizer);
 
-            await DeleteOrganizationDataInOrder(id);
-
-            _uow.OrganizationRepository.Delete(organization);
+            await _uow.BeginTransactionAsync();
             
-            await _uow.CommitAsync();
+            try
+            {
+                await DeleteOrganizationDataInOrder(id);
+                
+                await _uow.OrganizationRepository
+                    .FindBy(o => o.Id == id)
+                    .ExecuteDeleteAsync();
+
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
         }
 
         private async Task DeleteOrganizationDataInOrder(int organizationId)

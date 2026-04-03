@@ -38,5 +38,7 @@ namespace APICore.Data.UoW
         IGenericRepository<ProductLocationOffer> ProductLocationOfferRepository { get; set; }
         IGenericRepository<WebPushSubscription> WebPushSubscriptionRepository { get; set; }
         Task<int> CommitAsync();
+        Task BeginTransactionAsync();
+        Task RollbackAsync();
     }
 }

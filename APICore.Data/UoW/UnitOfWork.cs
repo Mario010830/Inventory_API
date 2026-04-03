@@ -1,5 +1,6 @@
 using APICore.Data.Entities;
 using APICore.Data.Repository;
+using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Threading.Tasks;
 
@@ -8,6 +9,7 @@ namespace APICore.Data.UoW
     public class UnitOfWork : IUnitOfWork, IDisposable
     {
         private readonly CoreDbContext _context;
+        private IDbContextTransaction? _transaction;
 
         public UnitOfWork(CoreDbContext context)
         {
@@ -79,11 +81,36 @@ namespace APICore.Data.UoW
 
         public async Task<int> CommitAsync()
         {
-            return await _context.SaveChangesAsync();
+            var result = await _context.SaveChangesAsync();
+            
+            if (_transaction != null)
+            {
+                await _transaction.CommitAsync();
+                await _transaction.DisposeAsync();
+                _transaction = null;
+            }
+            
+            return result;
+        }
+
+        public async Task BeginTransactionAsync()
+        {
+            _transaction = await _context.Database.BeginTransactionAsync();
+        }
+
+        public async Task RollbackAsync()
+        {
+            if (_transaction != null)
+            {
+                await _transaction.RollbackAsync();
+                await _transaction.DisposeAsync();
+                _transaction = null;
+            }
         }
 
         public void Dispose()
         {
+            _transaction?.Dispose();
             _context.Dispose();
             GC.SuppressFinalize(this);
         }
