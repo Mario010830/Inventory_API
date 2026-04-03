@@ -458,7 +458,8 @@ namespace APICore.Data
                 e.Property(c => c.ExchangeRate).HasPrecision(18, 8);
             });
             modelBuilder.Entity<Currency>().HasQueryFilter(c =>
-                CurrentOrganizationId > 0 && c.OrganizationId == CurrentOrganizationId);
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && c.OrganizationId == CurrentOrganizationId));
 
             modelBuilder.Entity<Organization>()
                 .HasMany(o => o.Subscriptions)
