@@ -1,5 +1,6 @@
 using APICore.Data.Entities;
 using APICore.Data.Repository;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Threading.Tasks;
@@ -111,7 +112,7 @@ namespace APICore.Data.UoW
         public async Task ExecuteInTransactionAsync(Func<Task> operation)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
-            
+
             await strategy.ExecuteAsync(async () =>
             {
                 await using var transaction = await _context.Database.BeginTransactionAsync();
