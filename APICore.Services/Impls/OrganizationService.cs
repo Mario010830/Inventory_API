@@ -59,23 +59,14 @@ namespace APICore.Services.Impls
             if (!exists)
                 throw new OrganizationNotFoundException(_localizer);
 
-            await _uow.BeginTransactionAsync();
-            
-            try
+            await _uow.ExecuteInTransactionAsync(async () =>
             {
                 await DeleteOrganizationDataInOrder(id);
                 
                 await _uow.OrganizationRepository
                     .FindBy(o => o.Id == id)
                     .ExecuteDeleteAsync();
-
-                await _uow.CommitAsync();
-            }
-            catch
-            {
-                await _uow.RollbackAsync();
-                throw;
-            }
+            });
         }
 
         private async Task DeleteOrganizationDataInOrder(int organizationId)

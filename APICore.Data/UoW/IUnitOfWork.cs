@@ -40,5 +40,6 @@ namespace APICore.Data.UoW
         Task<int> CommitAsync();
         Task BeginTransactionAsync();
         Task RollbackAsync();
+        Task ExecuteInTransactionAsync(Func<Task> operation);
     }
 }
