@@ -39,6 +39,10 @@ namespace APICore.Data.UoW
             SubscriptionRequestRepository ??= new GenericRepository<SubscriptionRequest>(_context);
             CurrencyRepository ??= new GenericRepository<Currency>(_context);
             BusinessCategoryRepository ??= new GenericRepository<BusinessCategory>(_context);
+            ProductImageRepository ??= new GenericRepository<ProductImage>(_context);
+            ProductTagRepository ??= new GenericRepository<ProductTag>(_context);
+            ProductLocationOfferRepository ??= new GenericRepository<ProductLocationOffer>(_context);
+            WebPushSubscriptionRepository ??= new GenericRepository<WebPushSubscription>(_context);
         }
 
         public IGenericRepository<User> UserRepository { get; set; }
@@ -68,6 +72,10 @@ namespace APICore.Data.UoW
         public IGenericRepository<SubscriptionRequest> SubscriptionRequestRepository { get; set; }
         public IGenericRepository<Currency> CurrencyRepository { get; set; }
         public IGenericRepository<BusinessCategory> BusinessCategoryRepository { get; set; }
+        public IGenericRepository<ProductImage> ProductImageRepository { get; set; }
+        public IGenericRepository<ProductTag> ProductTagRepository { get; set; }
+        public IGenericRepository<ProductLocationOffer> ProductLocationOfferRepository { get; set; }
+        public IGenericRepository<WebPushSubscription> WebPushSubscriptionRepository { get; set; }
 
         public async Task<int> CommitAsync()
         {

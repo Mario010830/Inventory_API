@@ -10,6 +10,7 @@ using Microsoft.Extensions.Localization;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace APICore.Services.Impls
 {
@@ -55,12 +56,98 @@ namespace APICore.Services.Impls
             if (organization == null)
                 throw new OrganizationNotFoundException(_localizer);
 
-            var hasLocations = await _uow.LocationRepository.FindBy(l => l.OrganizationId == id).AnyAsync();
-            if (hasLocations)
-                throw new OrganizationInUseCannotDeleteBadRequestException(_localizer);
+            await DeleteOrganizationDataInOrder(id);
 
             _uow.OrganizationRepository.Delete(organization);
+            
             await _uow.CommitAsync();
+        }
+
+        private async Task DeleteOrganizationDataInOrder(int organizationId)
+        {
+            var orgLocationIds = await _uow.LocationRepository.FindBy(l => l.OrganizationId == organizationId)
+                .Select(l => l.Id)
+                .ToListAsync();
+
+            await _uow.InventoryMovementRepository.FindBy(im => 
+                orgLocationIds.Contains(im.LocationId))
+                .ExecuteDeleteAsync();
+
+            await _uow.InventoryRepository.FindBy(i => 
+                orgLocationIds.Contains(i.LocationId))
+                .ExecuteDeleteAsync();
+
+            await _uow.SaleOrderItemRepository.FindBy(oi => 
+                oi.SaleOrder != null && oi.SaleOrder.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+            await _uow.SaleReturnItemRepository.FindBy(ri => 
+                ri.SaleReturn != null && ri.SaleReturn.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.SaleOrderRepository.FindBy(so => so.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+            await _uow.SaleReturnRepository.FindBy(sr => sr.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.ProductTagRepository.FindBy(pt => 
+                pt.Product != null && pt.Product.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+            await _uow.ProductImageRepository.FindBy(pi => 
+                pi.Product != null && pi.Product.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+            await _uow.ProductLocationOfferRepository.FindBy(plo => plo.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.ProductRepository.FindBy(p => p.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.ProductCategoryRepository.FindBy(pc => pc.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.SupplierRepository.FindBy(s => s.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+            await _uow.ContactRepository.FindBy(c => c.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+            await _uow.LeadRepository.FindBy(l => l.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.LocationRepository.FindBy(l => l.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.UserRepository.FindBy(u => u.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            var orgRoles = await _uow.RoleRepository.FindBy(r => r.OrganizationId == organizationId).ToListAsync();
+            if (orgRoles.Any())
+            {
+                var roleIds = orgRoles.Select(r => r.Id).ToList();
+                await _uow.RolePermissionRepository.FindBy(rp => roleIds.Contains(rp.RoleId))
+                    .ExecuteDeleteAsync();
+                await _uow.RoleRepository.FindBy(r => r.OrganizationId == organizationId)
+                    .ExecuteDeleteAsync();
+            }
+
+            await _uow.CurrencyRepository.FindBy(c => c.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.SubscriptionRequestRepository.FindBy(sr => 
+                sr.Subscription != null && sr.Subscription.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+            await _uow.SubscriptionRepository.FindBy(s => s.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.WebPushSubscriptionRepository.FindBy(wps => wps.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.PromotionRepository.FindBy(p => p.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            var usedTagIds = await _uow.ProductTagRepository
+                .Select(pt => pt.TagId)
+                .Distinct()
+                .ToListAsync();
+            await _uow.TagRepository.FindBy(t => !usedTagIds.Contains(t.Id))
+                .ExecuteDeleteAsync();
         }
 
         public async Task<OrganizationResponse> GetOrganization(int id)

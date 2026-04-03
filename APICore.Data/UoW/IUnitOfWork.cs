@@ -33,6 +33,10 @@ namespace APICore.Data.UoW
         IGenericRepository<SubscriptionRequest> SubscriptionRequestRepository { get; set; }
         IGenericRepository<Currency> CurrencyRepository { get; set; }
         IGenericRepository<BusinessCategory> BusinessCategoryRepository { get; set; }
+        IGenericRepository<ProductImage> ProductImageRepository { get; set; }
+        IGenericRepository<ProductTag> ProductTagRepository { get; set; }
+        IGenericRepository<ProductLocationOffer> ProductLocationOfferRepository { get; set; }
+        IGenericRepository<WebPushSubscription> WebPushSubscriptionRepository { get; set; }
         Task<int> CommitAsync();
     }
 }
