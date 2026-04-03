@@ -158,6 +158,7 @@ namespace APICore.Services.Impls
                 .ExecuteDeleteAsync();
 
             var usedTagIds = await _uow.ProductTagRepository
+                .FindBy(pt => pt.Product != null && pt.Product.OrganizationId == organizationId)
                 .Select(pt => pt.TagId)
                 .Distinct()
                 .ToListAsync();
