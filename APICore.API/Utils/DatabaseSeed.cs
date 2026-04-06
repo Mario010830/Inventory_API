@@ -133,6 +133,8 @@ namespace APICore.API.Utils
                 PermissionCodes.PlanRead, PermissionCodes.PlanManage,
 
                 PermissionCodes.CurrencyRead, PermissionCodes.CurrencyCreate, PermissionCodes.CurrencyUpdate, PermissionCodes.CurrencyDelete,
+
+                PermissionCodes.MetricsRead,
             };
 
             foreach (var code in permissionCodes)

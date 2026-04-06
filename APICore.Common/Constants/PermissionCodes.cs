@@ -86,5 +86,7 @@ namespace APICore.Common.Constants
         public const string CurrencyCreate = "currency.create";
         public const string CurrencyUpdate = "currency.update";
         public const string CurrencyDelete = "currency.delete";
+
+        public const string MetricsRead = "metrics.read";
     }
 }

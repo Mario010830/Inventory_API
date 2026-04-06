@@ -45,6 +45,7 @@ namespace APICore.Data
         public DbSet<BusinessCategory> BusinessCategories { get; set; }
         public DbSet<WebPushSubscription> WebPushSubscriptions { get; set; }
         public DbSet<ProductLocationOffer> ProductLocationOffers { get; set; }
+        public DbSet<MetricsEvent> MetricsEvents { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -485,6 +486,45 @@ namespace APICore.Data
                 .WithMany(p => p.Subscriptions)
                 .HasForeignKey(s => s.PlanId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<MetricsEvent>()
+                .HasOne(e => e.Organization)
+                .WithMany()
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<MetricsEvent>()
+                .HasOne(e => e.Location)
+                .WithMany()
+                .HasForeignKey(e => e.LocationId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<MetricsEvent>()
+                .HasOne(e => e.Product)
+                .WithMany()
+                .HasForeignKey(e => e.ProductId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<MetricsEvent>()
+                .HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<MetricsEvent>()
+                .HasOne(e => e.SaleOrder)
+                .WithMany()
+                .HasForeignKey(e => e.SaleOrderId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<MetricsEvent>()
+                .HasIndex(e => new { e.OrganizationId, e.EventType, e.OccurredAt });
+            modelBuilder.Entity<MetricsEvent>()
+                .HasIndex(e => new { e.OrganizationId, e.OccurredAt });
+            modelBuilder.Entity<MetricsEvent>()
+                .HasIndex(e => e.EventType);
+            modelBuilder.Entity<MetricsEvent>().HasQueryFilter(e =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && e.OrganizationId == CurrentOrganizationId));
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

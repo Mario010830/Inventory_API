@@ -1,4 +1,6 @@
 using APICore.API.BasicResponses;
+using APICore.API.Utils;
+using APICore.Common.DTO.Request;
 using APICore.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,10 +15,14 @@ namespace APICore.API.Controllers
     public class PublicController : Controller
     {
         private readonly IPublicCatalogService _publicCatalogService;
+        private readonly ICatalogMetricsTrackingService _catalogMetricsTrackingService;
 
-        public PublicController(IPublicCatalogService publicCatalogService)
+        public PublicController(
+            IPublicCatalogService publicCatalogService,
+            ICatalogMetricsTrackingService catalogMetricsTrackingService)
         {
             _publicCatalogService = publicCatalogService ?? throw new ArgumentNullException(nameof(publicCatalogService));
+            _catalogMetricsTrackingService = catalogMetricsTrackingService ?? throw new ArgumentNullException(nameof(catalogMetricsTrackingService));
         }
 
         /// <summary>
@@ -98,6 +104,21 @@ namespace APICore.API.Controllers
 
             // Si no viene ni locationId ni all=true → 400 Bad Request.
             return BadRequest(new ApiBadRequestResponse("Se requiere locationId o all=true"));
+        }
+
+        /// <summary>
+        /// Registra eventos de analítica del catálogo (visitas, vistas de producto, carrito, búsquedas, etc.).
+        /// Opcional: JWT para asociar userId; en caso contrario enviar sessionId estable por navegador.
+        /// </summary>
+        [HttpPost("metrics/events")]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        public async Task<IActionResult> PostCatalogMetricsEvents([FromBody] CatalogMetricsBatchRequest request)
+        {
+            var userId = User.GetUserIdFromToken();
+            int? authUserId = userId > 0 ? userId : null;
+            await _catalogMetricsTrackingService.AppendPublicEventsAsync(request, authUserId);
+            return Ok(new ApiOkResponse(new { accepted = request.Events.Count }));
         }
     }
 }

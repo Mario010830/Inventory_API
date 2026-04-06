@@ -4,6 +4,7 @@ using APICore.Data;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
 using APICore.Data.UoW;
+using APICore.Services;
 using APICore.Services.Exceptions;
 using APICore.Services.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -21,19 +22,22 @@ namespace APICore.Services.Impls
         private readonly IStringLocalizer<ISaleOrderService> _localizer;
         private readonly IInventorySettings _inventorySettings;
         private readonly IPromotionService _promotionService;
+        private readonly ICatalogMetricsTrackingService _catalogMetricsTrackingService;
 
         public SaleOrderService(
             IUnitOfWork uow,
             CoreDbContext context,
             IStringLocalizer<ISaleOrderService> localizer,
             IInventorySettings inventorySettings,
-            IPromotionService promotionService)
+            IPromotionService promotionService,
+            ICatalogMetricsTrackingService catalogMetricsTrackingService)
         {
             _uow = uow;
             _context = context;
             _localizer = localizer;
             _inventorySettings = inventorySettings;
             _promotionService = promotionService;
+            _catalogMetricsTrackingService = catalogMetricsTrackingService ?? throw new ArgumentNullException(nameof(catalogMetricsTrackingService));
         }
 
         public async Task<SaleOrder> CreateSaleOrder(CreateSaleOrderRequest request, int userId)
@@ -211,6 +215,7 @@ namespace APICore.Services.Impls
 
             order.Status = SaleOrderStatus.confirmed;
             _uow.SaleOrderRepository.Update(order);
+            _catalogMetricsTrackingService.StagePurchaseCompletedEvents(order);
             await _uow.CommitAsync();
 
             return await LoadFullOrder(id);

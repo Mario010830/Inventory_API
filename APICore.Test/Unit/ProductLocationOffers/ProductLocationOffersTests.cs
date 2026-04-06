@@ -154,7 +154,9 @@ namespace APICore.Tests.Unit.ProductLocationOffers
             var loc = new Mock<IStringLocalizer<ISaleOrderService>>();
             loc.Setup(x => x[It.IsAny<string>()]).Returns((string s) => new LocalizedString(s, s));
 
-            var svc = new SaleOrderService(uow, ctx, loc.Object, inv.Object, promo.Object);
+            var metrics = new Mock<ICatalogMetricsTrackingService>();
+
+            var svc = new SaleOrderService(uow, ctx, loc.Object, inv.Object, promo.Object, metrics.Object);
 
             await Assert.ThrowsAsync<ProductNotOfferedAtLocationBadRequestException>(async () =>
                 await svc.CreateSaleOrder(new CreateSaleOrderRequest
@@ -200,7 +202,9 @@ namespace APICore.Tests.Unit.ProductLocationOffers
             var loc = new Mock<IStringLocalizer<ISaleOrderService>>();
             loc.Setup(x => x[It.IsAny<string>()]).Returns((string s) => new LocalizedString(s, s));
 
-            var svc = new SaleOrderService(uow, ctx, loc.Object, inv.Object, promo.Object);
+            var metrics = new Mock<ICatalogMetricsTrackingService>();
+
+            var svc = new SaleOrderService(uow, ctx, loc.Object, inv.Object, promo.Object, metrics.Object);
 
             var order = await svc.CreateSaleOrder(new CreateSaleOrderRequest
             {

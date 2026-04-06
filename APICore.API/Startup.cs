@@ -104,6 +104,8 @@ namespace APICore.API
             services.AddTransient<ICurrencyService, CurrencyService>();
             services.AddTransient<IBusinessCategoryService, BusinessCategoryService>();
             services.AddTransient<IReportsService, ReportsService>();
+            services.AddTransient<IMetricsService, MetricsService>();
+            services.AddTransient<ICatalogMetricsTrackingService, CatalogMetricsTrackingService>();
 
             services.AddScoped<ICurrentUserContextAccessor, CurrentUserContextAccessor>();
             services.AddScoped<ICurrentUserContextProvider, CurrentUserContextProvider>();
