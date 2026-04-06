@@ -1,5 +1,6 @@
 using APICore.API.Authorization;
 using APICore.API.Filters;
+using APICore.API.HostedServices;
 using APICore.API.Middleware;
 using APICore.API.Middlewares;
 using APICore.API.Utils;
@@ -97,6 +98,7 @@ namespace APICore.API
             services.AddTransient<ITagService, TagService>();
             services.AddTransient<IPromotionService, PromotionService>();
             services.AddTransient<ISubscriptionService, SubscriptionService>();
+            services.AddHostedService<SubscriptionExpirationHostedService>();
             services.AddTransient<IPlanService, PlanService>();
             services.AddTransient<ISubscriptionQuotaService, SubscriptionQuotaService>();
             services.AddTransient<ICurrencyService, CurrencyService>();

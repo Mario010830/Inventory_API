@@ -254,12 +254,26 @@ namespace APICore.Services.Impls
             if (sub == null)
                 throw new SubscriptionNotFoundException();
 
+            var now = DateTime.UtcNow;
             var cycle = dto.BillingCycle.Trim().ToLowerInvariant();
-            var baseDate = sub.EndDate > DateTime.UtcNow ? sub.EndDate : DateTime.UtcNow;
+
+            // Cancelled mid-term still has EndDate in the future; renew should start a new period from now,
+            // not stack after the old end (natural expiry / active renewal keeps stacking from EndDate when still valid).
+            DateTime baseDate;
+            if (sub.Status == SubscriptionStatus.Cancelled)
+            {
+                baseDate = now;
+                sub.StartDate = now;
+            }
+            else
+            {
+                baseDate = sub.EndDate > now ? sub.EndDate : now;
+            }
+
             sub.EndDate = ComputeEndDate(baseDate, cycle);
             sub.BillingCycle = cycle;
             sub.Status = SubscriptionStatus.Active;
-            sub.UpdatedAt = DateTime.UtcNow;
+            sub.UpdatedAt = now;
             _uow.SubscriptionRepository.Update(sub);
 
             if (sub.Organization != null)
@@ -277,7 +291,7 @@ namespace APICore.Services.Impls
                 Notes = dto.Notes,
                 PaymentReference = dto.PaymentReference,
                 ReviewedByUserId = reviewerUserId,
-                ReviewedAt = DateTime.UtcNow,
+                ReviewedAt = now,
             };
             await _uow.SubscriptionRequestRepository.AddAsync(audit);
             await _uow.CommitAsync();
