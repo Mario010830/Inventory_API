@@ -135,6 +135,8 @@ namespace APICore.API.Utils
                 PermissionCodes.CurrencyRead, PermissionCodes.CurrencyCreate, PermissionCodes.CurrencyUpdate, PermissionCodes.CurrencyDelete,
 
                 PermissionCodes.MetricsRead,
+
+                PermissionCodes.ManualChatAsk,
             };
 
             foreach (var code in permissionCodes)

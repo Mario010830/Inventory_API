@@ -88,5 +88,8 @@ namespace APICore.Common.Constants
         public const string CurrencyDelete = "currency.delete";
 
         public const string MetricsRead = "metrics.read";
+
+        /// <summary>Consultar el asistente RAG del manual de usuario.</summary>
+        public const string ManualChatAsk = "manual.chat.ask";
     }
 }

@@ -9,6 +9,7 @@ using APICore.Data.UoW;
 using APICore.Services;
 using APICore.Services.Impls;
 using APICore.Services.Options;
+using APICore.Services.Rag;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting;
@@ -107,6 +108,8 @@ namespace APICore.API
             services.AddTransient<IMetricsService, MetricsService>();
             services.AddTransient<ICatalogMetricsTrackingService, CatalogMetricsTrackingService>();
 
+            services.AddRagServices(Configuration);
+
             services.AddScoped<ICurrentUserContextAccessor, CurrentUserContextAccessor>();
             services.AddScoped<ICurrentUserContextProvider, CurrentUserContextProvider>();
             services.AddScoped<IAuthorizationDomainService, AuthorizationDomainService>();
@@ -158,6 +161,7 @@ namespace APICore.API
             app.UseStaticFiles();
 
             app.UseRouting();
+            app.UseMiddleware<RagChatRateLimitMiddleware>();
             app.UseAuthentication();
             app.UseMiddleware<CurrentUserContextMiddleware>();
             app.UseAuthorization();
