@@ -9,6 +9,7 @@ using APICore.Common.DTO.Response;
 using APICore.Services.Exceptions;
 using APICore.Services.Options;
 using APICore.Services.Rag;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Pgvector;
@@ -37,17 +38,20 @@ Contexto del manual:
         private readonly IEmbeddingService _embedding;
         private readonly IRagLlmClient _llm;
         private readonly IOptions<RagOptions> _options;
+        private readonly ILogger<RagService> _logger;
 
         public RagService(
             NpgsqlDataSource dataSource,
             IEmbeddingService embedding,
             IRagLlmClient llm,
-            IOptions<RagOptions> options)
+            IOptions<RagOptions> options,
+            ILogger<RagService> logger)
         {
             _dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
             _embedding = embedding ?? throw new ArgumentNullException(nameof(embedding));
             _llm = llm ?? throw new ArgumentNullException(nameof(llm));
             _options = options ?? throw new ArgumentNullException(nameof(options));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public async Task<ChatAskResponse> AskAsync(ChatAskRequest request, CancellationToken cancellationToken = default)
@@ -63,10 +67,16 @@ Contexto del manual:
                 throw new BaseBadRequestException($"La pregunta no puede superar {opt.MaxQuestionLength} caracteres.");
 
             var queryVector = await _embedding.EmbedAsync(request.Question, cancellationToken).ConfigureAwait(false);
-            var rows = await SearchSimilarAsync(queryVector, opt.TopKChunks, cancellationToken).ConfigureAwait(false);
+            var topK = Math.Clamp(opt.TopKChunks, 1, 50);
+            if (topK != opt.TopKChunks)
+                _logger.LogWarning("Rag:TopKChunks ajustado de {Original} a {Usado} (debe estar entre 1 y 50).", opt.TopKChunks, topK);
+
+            var rows = await SearchSimilarAsync(queryVector, topK, cancellationToken).ConfigureAwait(false);
 
             if (rows.Count == 0)
             {
+                _logger.LogWarning(
+                    "RAG: manual_chunks devolvió 0 filas. Comprueba que la API use la misma base que la ingesta (ConnectionStrings:ApiConnection), que exista la tabla y filas (SELECT count(*) FROM manual_chunks), y que la extensión vector esté en esa base.");
                 return new ChatAskResponse
                 {
                     Answer = "No encontré información sobre eso en el manual.",
