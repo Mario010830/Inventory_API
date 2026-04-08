@@ -27,10 +27,14 @@ namespace APICore.Services.Rag.Impl
     public class RagService : IRagService
     {
         private const string SystemPromptTemplate = @"Eres un asistente de soporte para el sistema de inventario.
-Responde ÚNICAMENTE basándote en el contexto del manual provisto.
-Si la información no está en el contexto, di ""No encontré información sobre eso en el manual.""
-Si el usuario solo saluda o agradece de forma breve, responde de forma natural en el mismo idioma sin forzar citas al manual.
-Sé conciso y directo. Responde en el mismo idioma que la pregunta.
+
+Tienes fragmentos del manual debajo. Tu trabajo es ayudar al usuario usando ESE texto.
+- Si el fragmento habla del tema de la pregunta aunque use otras palabras (ej. ""inventario"", ""stock"", ""Movimientos"", rutas `/dashboard/...`), responde con pasos o datos concretos del contexto. Puedes relacionar sinónimos y secciones cercanas.
+- No inventes pantallas, URLs ni permisos que no aparezcan en el contexto.
+- Solo di exactamente: ""No encontré información sobre eso en el manual."" cuando el contexto no contiene NADA útil ni indirectamente relacionado con lo preguntado.
+- Saludos o gracias breves: responde de forma natural en el mismo idioma, sin forzar citas.
+
+Sé conciso. Mismo idioma que la pregunta.
 
 Contexto del manual:
 {0}";
