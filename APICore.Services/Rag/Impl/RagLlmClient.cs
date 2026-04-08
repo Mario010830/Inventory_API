@@ -36,7 +36,7 @@ namespace APICore.Services.Rag.Impl
             if (string.IsNullOrWhiteSpace(opt.GeminiApiKey))
                 throw new InvalidOperationException("Rag:GeminiApiKey no está configurada (requerida para el chat RAG).");
 
-            var model = string.IsNullOrWhiteSpace(opt.GeminiChatModel) ? "gemini-2.0-flash" : opt.GeminiChatModel.Trim();
+            var model = string.IsNullOrWhiteSpace(opt.GeminiChatModel) ? "gemini-2.5-flash" : opt.GeminiChatModel.Trim();
             var client = _httpClientFactory.CreateClient("GeminiChat");
             var url = $"v1beta/models/{Uri.EscapeDataString(model)}:generateContent?key={Uri.EscapeDataString(opt.GeminiApiKey)}";
 

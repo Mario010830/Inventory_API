@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -40,14 +41,17 @@ namespace APICore.Services.Rag.Impl
             var client = _httpClientFactory.CreateClient("GeminiEmbedding");
             var url = $"v1beta/models/{Uri.EscapeDataString(model)}:embedContent?key={Uri.EscapeDataString(opt.GeminiApiKey)}";
 
-            var payload = new
+            // Claves en snake_case: System.Text.Json camelCase no sirve para output_dimensionality.
+            var payload = new Dictionary<string, object?>
             {
-                model = $"models/{model}",
-                content = new
+                ["model"] = $"models/{model}",
+                ["content"] = new Dictionary<string, object?>
                 {
-                    parts = new[] { new { text } }
+                    ["parts"] = new[] { new Dictionary<string, string> { ["text"] = text } }
                 }
             };
+            if (model.StartsWith("gemini-embedding", StringComparison.OrdinalIgnoreCase))
+                payload["output_dimensionality"] = opt.EmbeddingDimension;
 
             using var response = await client.PostAsJsonAsync(url, payload, cancellationToken).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);

@@ -7,10 +7,11 @@ namespace APICore.Services.Options
         /// <summary>Clave de Google AI (Gemini): embeddings + respuestas del chat RAG.</summary>
         public string GeminiApiKey { get; set; } = string.Empty;
 
-        public string EmbeddingModel { get; set; } = "text-embedding-004";
+        /// <summary>embedContent: usar <c>gemini-embedding-001</c> (estable). <c>text-embedding-004</c> puede dar 404 en cuentas nuevas.</summary>
+        public string EmbeddingModel { get; set; } = "gemini-embedding-001";
 
-        /// <summary>Modelo para generateContent (p. ej. gemini-2.0-flash).</summary>
-        public string GeminiChatModel { get; set; } = "gemini-2.0-flash";
+        /// <summary>generateContent: <c>gemini-2.5-flash</c> estable; <c>gemini-2.0-flash</c> está deprecado y suele devolver 404.</summary>
+        public string GeminiChatModel { get; set; } = "gemini-2.5-flash";
 
         public int EmbeddingDimension { get; set; } = 768;
         public int TopKChunks { get; set; } = 5;
