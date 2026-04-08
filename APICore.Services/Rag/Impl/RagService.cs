@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using APICore.Common.DTO.Request;
@@ -21,6 +22,7 @@ namespace APICore.Services.Rag.Impl
     {
         public string Content { get; set; } = string.Empty;
         public string SourceFile { get; set; } = string.Empty;
+        public int ChunkIndex { get; set; }
         public double Similarity { get; set; }
     }
 
@@ -102,6 +104,14 @@ Sé conciso.";
                 _logger.LogWarning("Rag:TopKChunks ajustado de {Original} a {Usado} (debe estar entre 1 y 50).", opt.TopKChunks, topK);
 
             var rows = await SearchSimilarAsync(queryVector, topK, cancellationToken).ConfigureAwait(false);
+            if (rows.Count == 0)
+            {
+                rows = await SearchLexicalFallbackAsync(request.Question.Trim(), topK, cancellationToken).ConfigureAwait(false);
+                if (rows.Count > 0)
+                    _logger.LogInformation(
+                        "RAG: búsqueda vectorial sin filas; rescate por palabras clave devolvió {Count} fragmento(s).",
+                        rows.Count);
+            }
 
             string systemPrompt;
             if (rows.Count == 0)
@@ -139,7 +149,7 @@ Sé conciso.";
         {
             await using var conn = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var cmd = new NpgsqlCommand(
-                @"SELECT content, source_file, 1 - (embedding <=> @q) AS similarity
+                @"SELECT content, source_file, chunk_index, 1 - (embedding <=> @q) AS similarity
                   FROM manual_chunks
                   ORDER BY embedding <=> @q
                   LIMIT @k",
@@ -155,7 +165,8 @@ Sé conciso.";
                 {
                     Content = reader.GetString(0),
                     SourceFile = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                    Similarity = reader.GetDouble(2)
+                    ChunkIndex = reader.GetInt32(2),
+                    Similarity = reader.GetDouble(3)
                 });
             }
 
@@ -174,6 +185,145 @@ Sé conciso.";
             }
 
             return sb.ToString().Trim();
+        }
+
+        /// <summary>Cuando la similitud vectorial no devuelve filas (p. ej. pregunta en español vs embeddings), busca coincidencias de palabras en el texto.</summary>
+        private async Task<List<ManualChunkSearchRow>> SearchLexicalFallbackAsync(
+            string question,
+            int topK,
+            CancellationToken cancellationToken)
+        {
+            var terms = CollectLexicalTerms(question);
+            if (terms.Count == 0)
+                return new List<ManualChunkSearchRow>();
+
+            await using var conn = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            var sb = new StringBuilder();
+            sb.Append("SELECT content, source_file, chunk_index, 0.45::float8 AS similarity FROM manual_chunks WHERE ");
+            await using var cmd = new NpgsqlCommand { Connection = conn };
+            for (var i = 0; i < terms.Count; i++)
+            {
+                if (i > 0)
+                    sb.Append(" OR ");
+                sb.Append($"content ILIKE @t{i} ESCAPE '\\'");
+                cmd.Parameters.Add(new NpgsqlParameter($"t{i}", "%" + EscapeLikePattern(terms[i]) + "%"));
+            }
+
+            sb.Append(" ORDER BY id LIMIT @lim");
+            cmd.Parameters.AddWithValue("lim", Math.Clamp(topK * 15, 30, 200));
+            cmd.CommandText = sb.ToString();
+
+            var raw = new List<ManualChunkSearchRow>();
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                raw.Add(new ManualChunkSearchRow
+                {
+                    Content = reader.GetString(0),
+                    SourceFile = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                    ChunkIndex = reader.GetInt32(2),
+                    Similarity = reader.GetDouble(3)
+                });
+            }
+
+            return raw
+                .GroupBy(r => (r.SourceFile, r.ChunkIndex))
+                .Select(g => g.First())
+                .Take(topK)
+                .ToList();
+        }
+
+        private static readonly HashSet<string> LexicalStopwords = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "the", "and", "for", "are", "but", "not", "you", "all", "can", "her", "was", "one", "our", "out", "day", "get", "has", "him", "his", "how", "its", "may", "new", "now", "old", "see", "two", "way", "who", "boy", "did", "let", "put", "say", "she", "too", "use",
+            "el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del", "al", "y", "o", "u", "a", "en", "por", "para", "que", "con", "sin", "se", "es", "son", "soy", "era", "fue", "han", "hay", "les", "le", "lo", "me", "mi", "mis", "tu", "tus", "su", "sus", "ya", "muy", "más", "menos", "este", "esta", "esto", "ese", "esa", "eso", "aquí", "allí", "donde", "cuando", "como", "cual", "quien",
+            "hola", "buenos", "dias", "tardes", "noches", "gracias", "favor", "solo", "tan", "tanto",
+            "cómo", "dónde", "qué", "cuál", "quién", "está", "están", "tengo", "tienes", "tiene"
+        };
+
+        private static List<string> CollectLexicalTerms(string question)
+        {
+            var found = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (Match m in Regex.Matches(question, @"[\p{L}]{3,}", RegexOptions.CultureInvariant))
+            {
+                var w = m.Value;
+                if (w.Length < 3)
+                    continue;
+                var lower = w.ToLowerInvariant();
+                if (LexicalStopwords.Contains(lower))
+                    continue;
+                foreach (var expanded in ExpandLexicalTerm(w))
+                {
+                    if (expanded.Length < 3)
+                        continue;
+                    if (seen.Add(expanded))
+                        found.Add(expanded);
+                    if (found.Count >= 14)
+                        return found;
+                }
+            }
+
+            return found;
+        }
+
+        private static IEnumerable<string> ExpandLexicalTerm(string word)
+        {
+            yield return word;
+            var lower = word.ToLowerInvariant();
+            switch (lower)
+            {
+                case "creo":
+                case "crea":
+                case "creamos":
+                case "creado":
+                case "creada":
+                case "creating":
+                case "create":
+                case "created":
+                    yield return "crear";
+                    break;
+                case "productos":
+                    yield return "producto";
+                    break;
+                case "inventarios":
+                    yield return "inventario";
+                    break;
+                case "movimientos":
+                    yield return "movimiento";
+                    break;
+                case "ubicaciones":
+                    yield return "ubicación";
+                    yield return "ubicacion";
+                    break;
+                case "categorias":
+                case "categorías":
+                    yield return "categoría";
+                    yield return "categoria";
+                    break;
+                case "proveedores":
+                    yield return "proveedor";
+                    break;
+                case "ventas":
+                    yield return "venta";
+                    break;
+                case "contactos":
+                    yield return "contacto";
+                    break;
+                case "usuarios":
+                    yield return "usuario";
+                    break;
+                case "roles":
+                    yield return "rol";
+                    break;
+            }
+        }
+
+        private static string EscapeLikePattern(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+                return s;
+            return s.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal);
         }
     }
 }
