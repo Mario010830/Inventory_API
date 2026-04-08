@@ -85,6 +85,14 @@ namespace APICore.Services.Rag.Impl
             var summary = new ManualIngestionSummary();
             var delayMs = Math.Max(0, opt.IngestionDelayMsBetweenChunks);
 
+            if (files.Count > 0)
+            {
+                await using var clearConn = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+                await using var clearCmd = new NpgsqlCommand("DELETE FROM manual_chunks", clearConn);
+                var removed = await clearCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Tabla manual_chunks vaciada antes de la ingesta ({Rows} filas eliminadas).", removed);
+            }
+
             foreach (var fullPath in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();

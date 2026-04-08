@@ -29,10 +29,19 @@ namespace APICore.Services.Rag.Impl
         private const string SystemPromptTemplate = @"Eres un asistente de soporte para el sistema de inventario.
 Responde ÚNICAMENTE basándote en el contexto del manual provisto.
 Si la información no está en el contexto, di ""No encontré información sobre eso en el manual.""
+Si el usuario solo saluda o agradece de forma breve, responde de forma natural en el mismo idioma sin forzar citas al manual.
 Sé conciso y directo. Responde en el mismo idioma que la pregunta.
 
 Contexto del manual:
 {0}";
+
+        private const string SystemPromptWithoutManualChunks = @"Eres un asistente del sistema de inventario.
+Para esta pregunta no se recuperaron fragmentos del manual en la base de datos (búsqueda semántica sin resultados o tabla vacía).
+
+Comportamiento:
+- Si el usuario solo saluda o es una cortesía breve (hola, buenos días, gracias, etc.), responde de forma natural y breve en el mismo idioma.
+- Si pregunta cómo usar el sistema, rutas, permisos o funciones concretas, di con honestidad que ahora mismo no tienes texto del manual en contexto; no inventes pantallas ni URLs. Puedes invitar a reformular la pregunta o revisar el manual en la app.
+Sé conciso.";
 
         private readonly NpgsqlDataSource _dataSource;
         private readonly IEmbeddingService _embedding;
@@ -66,28 +75,6 @@ Contexto del manual:
             if (request.Question.Length > opt.MaxQuestionLength)
                 throw new BaseBadRequestException($"La pregunta no puede superar {opt.MaxQuestionLength} caracteres.");
 
-            var queryVector = await _embedding.EmbedAsync(request.Question, cancellationToken).ConfigureAwait(false);
-            var topK = Math.Clamp(opt.TopKChunks, 1, 50);
-            if (topK != opt.TopKChunks)
-                _logger.LogWarning("Rag:TopKChunks ajustado de {Original} a {Usado} (debe estar entre 1 y 50).", opt.TopKChunks, topK);
-
-            var rows = await SearchSimilarAsync(queryVector, topK, cancellationToken).ConfigureAwait(false);
-
-            if (rows.Count == 0)
-            {
-                _logger.LogWarning(
-                    "RAG: manual_chunks devolvió 0 filas. Comprueba que la API use la misma base que la ingesta (ConnectionStrings:ApiConnection), que exista la tabla y filas (SELECT count(*) FROM manual_chunks), y que la extensión vector esté en esa base.");
-                return new ChatAskResponse
-                {
-                    Answer = "No encontré información sobre eso en el manual.",
-                    Sources = Array.Empty<string>(),
-                    TokensUsed = 0
-                };
-            }
-
-            var context = BuildContextBlock(rows);
-            var systemPrompt = string.Format(SystemPromptTemplate, context);
-
             var messages = new List<RagLlmMessage>();
             if (request.ConversationHistory != null)
             {
@@ -105,14 +92,36 @@ Contexto del manual:
 
             messages.Add(new RagLlmMessage { Role = "user", Content = request.Question.Trim() });
 
+            var queryVector = await _embedding.EmbedAsync(request.Question, cancellationToken).ConfigureAwait(false);
+            var topK = Math.Clamp(opt.TopKChunks, 1, 50);
+            if (topK != opt.TopKChunks)
+                _logger.LogWarning("Rag:TopKChunks ajustado de {Original} a {Usado} (debe estar entre 1 y 50).", opt.TopKChunks, topK);
+
+            var rows = await SearchSimilarAsync(queryVector, topK, cancellationToken).ConfigureAwait(false);
+
+            string systemPrompt;
+            if (rows.Count == 0)
+            {
+                _logger.LogInformation(
+                    "RAG: 0 fragmentos del manual; se responde con el modelo sin contexto (revisa ingesta y ConnectionStrings:ApiConnection si esperabas datos).");
+                systemPrompt = SystemPromptWithoutManualChunks;
+            }
+            else
+            {
+                var context = BuildContextBlock(rows);
+                systemPrompt = string.Format(SystemPromptTemplate, context);
+            }
+
             var result = await _llm.CompleteAsync(systemPrompt, messages, cancellationToken).ConfigureAwait(false);
 
-            var sources = rows
-                .Select(r => r.SourceFile)
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var sources = rows.Count == 0
+                ? new List<string>()
+                : rows
+                    .Select(r => r.SourceFile)
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
             return new ChatAskResponse
             {
