@@ -8,6 +8,7 @@ using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
 using APICore.Services.Exceptions;
 using APICore.Services.Options;
+using APICore.Services.Rag;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Pgvector;
@@ -120,7 +121,7 @@ Contexto del manual:
                   ORDER BY embedding <=> @q
                   LIMIT @k",
                 conn);
-            cmd.Parameters.AddWithValue("q", new Vector(query));
+            cmd.Parameters.Add(NpgsqlVectorParameter.Create("q", new Vector(query)));
             cmd.Parameters.AddWithValue("k", topK);
 
             var list = new List<ManualChunkSearchRow>();

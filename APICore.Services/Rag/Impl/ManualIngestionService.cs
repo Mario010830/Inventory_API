@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using APICore.Services.Options;
+using APICore.Services.Rag;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -195,7 +196,7 @@ namespace APICore.Services.Rag.Impl
                 parameters.Add(new NpgsqlParameter($"c{i}", r.Content));
                 parameters.Add(new NpgsqlParameter($"s{i}", r.SourceFile));
                 parameters.Add(new NpgsqlParameter($"n{i}", r.ChunkIndex));
-                parameters.Add(new NpgsqlParameter($"e{i}", new Vector(r.Embedding)));
+                parameters.Add(NpgsqlVectorParameter.Create($"e{i}", new Vector(r.Embedding)));
                 parameters.Add(new NpgsqlParameter($"m{i}", r.MetadataJson));
             }
 
