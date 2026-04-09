@@ -3,7 +3,8 @@
     "AllowedOrigins": [
       "http://localhost:3000",
       "https://strova-store.vercel.app",
-      "https://inventory-admin-five.vercel.app"
+      "https://inventory-admin-five.vercel.app",
+      "https://admin.tucuadre.com"
     ]
   }
 }
