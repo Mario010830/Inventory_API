@@ -79,7 +79,7 @@ namespace APICore.Services.Impls
                 return org.Subscription.Plan;
 
             var free = await _context.Plans.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Name == PlanNames.Free);
+                .FirstOrDefaultAsync(p => p.Name.ToLower() == PlanNames.Free);
             if (free == null)
                 throw new PlanNotFoundException();
             return free;

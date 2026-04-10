@@ -300,7 +300,7 @@ namespace APICore.API.Utils
             if (defaultOrganization.SubscriptionId.HasValue)
                 return;
 
-            var freePlan = await uow.PlanRepository.FindBy(p => p.Name == PlanNames.Free).FirstOrDefaultAsync();
+            var freePlan = await uow.PlanRepository.FindBy(p => p.Name.ToLower() == PlanNames.Free).FirstOrDefaultAsync();
             if (freePlan == null)
                 return;
 

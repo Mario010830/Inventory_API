@@ -25,7 +25,7 @@ namespace APICore.Services.Impls
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        public async Task<Subscription> CreateFreeSubscriptionAsync(int organizationId)
+        public async Task<Subscription> CreateFreeSubscriptionAsync(int organizationId, int planId)
         {
             var org = await _context.Organizations.IgnoreQueryFilters()
                 .FirstOrDefaultAsync(o => o.Id == organizationId);
@@ -33,7 +33,7 @@ namespace APICore.Services.Impls
                 throw new OrganizationNotFoundException();
 
             var freePlan = await _context.Plans.IgnoreQueryFilters()
-                .FirstOrDefaultAsync(p => p.Name == PlanNames.Free && p.IsActive);
+                .FirstOrDefaultAsync(p => p.Id == planId);
             if (freePlan == null)
                 throw new PlanNotFoundException();
 

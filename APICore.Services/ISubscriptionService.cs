@@ -8,7 +8,7 @@ namespace APICore.Services
 {
     public interface ISubscriptionService
     {
-        Task<Subscription> CreateFreeSubscriptionAsync(int organizationId);
+        Task<Subscription> CreateFreeSubscriptionAsync(int organizationId, int planId);
         Task<SubscriptionRequest> CreatePaidSubscriptionRequestAsync(int organizationId, int planId, string billingCycle);
         Task<SubscriptionRequest> ApproveRequestAsync(int requestId, ApproveSubscriptionRequestDto dto, int reviewerUserId);
         Task<SubscriptionRequest> RejectRequestAsync(int requestId, RejectSubscriptionRequestDto dto, int reviewerUserId);

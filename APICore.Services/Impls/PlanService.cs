@@ -84,7 +84,9 @@ namespace APICore.Services.Impls
         public async Task DeleteAsync(int id)
         {
             var plan = await GetByIdAsync(id);
-            if (plan.Name is PlanNames.Free or PlanNames.Pro or PlanNames.Enterprise)
+            if (string.Equals(plan.Name, PlanNames.Free, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(plan.Name, PlanNames.Pro, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(plan.Name, PlanNames.Enterprise, StringComparison.OrdinalIgnoreCase))
                 throw new BaseBadRequestException { CustomCode = 400407, CustomMessage = "No se pueden eliminar los planes base del sistema." };
 
             var inUse = await _uow.SubscriptionRepository.FindBy(s => s.PlanId == id).AnyAsync();

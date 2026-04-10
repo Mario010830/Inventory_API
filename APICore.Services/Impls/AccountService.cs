@@ -481,7 +481,7 @@ namespace APICore.Services.Impls
             await _currencyService.EnsureBaseCurrencyForOrganizationAsync(organization.Id);
 
             if (string.Equals(plan.Name, PlanNames.Free, StringComparison.OrdinalIgnoreCase))
-                await _subscriptionService.CreateFreeSubscriptionAsync(organization.Id);
+                await _subscriptionService.CreateFreeSubscriptionAsync(organization.Id, plan.Id);
             else
                 await _subscriptionService.CreatePaidSubscriptionRequestAsync(organization.Id, plan.Id, request.BillingCycle);
         }
