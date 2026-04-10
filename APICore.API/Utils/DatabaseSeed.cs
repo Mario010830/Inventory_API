@@ -137,6 +137,8 @@ namespace APICore.API.Utils
                 PermissionCodes.MetricsRead,
 
                 PermissionCodes.ManualChatAsk,
+
+                PermissionCodes.DailySummaryView, PermissionCodes.DailySummaryCreate, PermissionCodes.DailySummaryExport,
             };
 
             foreach (var code in permissionCodes)

@@ -166,6 +166,11 @@ namespace APICore.API.Utils
             CreateMap<SubscriptionRequest, SubscriptionRequestResponse>()
                 .ForMember(d => d.Subscription, opts => opts.MapFrom(r => r.Subscription))
                 .ForMember(d => d.Organization, opts => opts.MapFrom(r => r.Subscription != null ? r.Subscription.Organization : null));
+
+            CreateMap<DailySummary, DailySummaryResponseDto>()
+                .ForMember(d => d.InventoryItems, opts => opts.MapFrom(s => s.InventoryItems));
+
+            CreateMap<DailySummaryInventoryItem, DailySummaryInventoryItemDto>();
         }
     }
 }

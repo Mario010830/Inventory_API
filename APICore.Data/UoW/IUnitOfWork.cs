@@ -38,6 +38,8 @@ namespace APICore.Data.UoW
         IGenericRepository<ProductTag> ProductTagRepository { get; set; }
         IGenericRepository<ProductLocationOffer> ProductLocationOfferRepository { get; set; }
         IGenericRepository<WebPushSubscription> WebPushSubscriptionRepository { get; set; }
+        IGenericRepository<DailySummary> DailySummaryRepository { get; set; }
+        IGenericRepository<DailySummaryInventoryItem> DailySummaryInventoryItemRepository { get; set; }
         Task<int> CommitAsync();
         Task BeginTransactionAsync();
         Task RollbackAsync();

@@ -46,6 +46,8 @@ namespace APICore.Data
         public DbSet<WebPushSubscription> WebPushSubscriptions { get; set; }
         public DbSet<ProductLocationOffer> ProductLocationOffers { get; set; }
         public DbSet<MetricsEvent> MetricsEvents { get; set; }
+        public DbSet<DailySummary> DailySummaries { get; set; }
+        public DbSet<DailySummaryInventoryItem> DailySummaryInventoryItems { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -525,6 +527,46 @@ namespace APICore.Data
             modelBuilder.Entity<MetricsEvent>().HasQueryFilter(e =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && e.OrganizationId == CurrentOrganizationId));
+
+            // DailySummary
+            modelBuilder.Entity<DailySummary>()
+                .HasOne(d => d.Location)
+                .WithMany()
+                .HasForeignKey(d => d.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<DailySummary>()
+                .HasOne(d => d.Organization)
+                .WithMany()
+                .HasForeignKey(d => d.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<DailySummary>()
+                .HasMany(d => d.InventoryItems)
+                .WithOne(i => i.DailySummary)
+                .HasForeignKey(i => i.DailySummaryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<DailySummary>()
+                .HasIndex(d => new { d.OrganizationId, d.LocationId, d.Date })
+                .IsUnique();
+
+            // DailySummaryInventoryItem
+            modelBuilder.Entity<DailySummaryInventoryItem>()
+                .HasOne(i => i.Product)
+                .WithMany()
+                .HasForeignKey(i => i.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<DailySummary>().HasQueryFilter(d =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && d.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && d.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<DailySummaryInventoryItem>().HasQueryFilter(i =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && i.DailySummary != null && i.DailySummary.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && i.DailySummary != null && i.DailySummary.OrganizationId == CurrentOrganizationId));
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

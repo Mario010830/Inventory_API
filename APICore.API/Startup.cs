@@ -107,6 +107,7 @@ namespace APICore.API
             services.AddTransient<IReportsService, ReportsService>();
             services.AddTransient<IMetricsService, MetricsService>();
             services.AddTransient<ICatalogMetricsTrackingService, CatalogMetricsTrackingService>();
+            services.AddTransient<IDailySummaryService, DailySummaryService>();
 
             services.AddRagServices(Configuration);
 

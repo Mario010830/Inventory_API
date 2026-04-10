@@ -91,5 +91,9 @@ namespace APICore.Common.Constants
 
         /// <summary>Consultar el asistente RAG del manual de usuario.</summary>
         public const string ManualChatAsk = "manual.chat.ask";
+
+        public const string DailySummaryView   = "daily_summary.view";
+        public const string DailySummaryCreate = "daily_summary.create";
+        public const string DailySummaryExport = "daily_summary.export";
     }
 }
