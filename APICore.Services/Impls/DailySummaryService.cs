@@ -31,11 +31,28 @@ namespace APICore.Services.Impls
         public async Task<DailySummaryResponseDto> GenerateAsync(DailySummaryRequestDto request)
         {
             var orgId = _context.CurrentOrganizationId;
-            var locationId = _context.CurrentLocationId;
+            if (orgId <= 0)
+                throw new BaseBadRequestException("No se pudo determinar la organización del usuario.");
+
+            // Usuario con location fija → se usa la suya. Admin sin location → debe enviar LocationId.
+            var locationId = _context.CurrentLocationId > 0
+                ? _context.CurrentLocationId
+                : (request.LocationId ?? 0);
+
+            if (locationId <= 0)
+                throw new BaseBadRequestException("Debes indicar la localización (LocationId) para generar el cuadre diario.");
+
+            // Validar que la localización pertenece a la organización del usuario
+            var locationExists = await _context.Locations
+                .IgnoreQueryFilters()
+                .AnyAsync(l => l.Id == locationId && l.OrganizationId == orgId);
+            if (!locationExists)
+                throw new BaseBadRequestException("La localización indicada no pertenece a tu organización.");
 
             var targetDate = request.Date.Date;
 
             var existing = await _context.DailySummaries
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(d => d.OrganizationId == orgId
                                        && d.LocationId == locationId
                                        && d.Date == targetDate
@@ -48,6 +65,7 @@ namespace APICore.Services.Impls
             var dayEnd   = targetDate.AddDays(1);
 
             var totalSales = await _context.SaleOrders
+                .IgnoreQueryFilters()
                 .Where(s => s.LocationId == locationId
                          && s.OrganizationId == orgId
                          && s.Status == SaleOrderStatus.confirmed
@@ -57,6 +75,7 @@ namespace APICore.Services.Impls
 
             // --- Calcular TotalReturns ---
             var totalReturns = await _context.SaleReturns
+                .IgnoreQueryFilters()
                 .Where(r => r.LocationId == locationId
                          && r.OrganizationId == orgId
                          && r.CreatedAt >= dayStart
@@ -64,28 +83,38 @@ namespace APICore.Services.Impls
                 .SumAsync(r => (decimal?)r.Total) ?? 0m;
 
             // --- Armar InventoryItems por producto vendido ---
-            var soldItems = await _context.SaleOrderItems
-                .Include(i => i.SaleOrder)
-                .Include(i => i.Product)
+            // Se obtienen datos planos primero para evitar problemas de traducción EF con GroupBy + navegación
+            var rawLines = await _context.SaleOrderItems
+                .IgnoreQueryFilters()
                 .Where(i => i.SaleOrder != null
                          && i.SaleOrder.LocationId == locationId
                          && i.SaleOrder.OrganizationId == orgId
                          && i.SaleOrder.Status == SaleOrderStatus.confirmed
                          && i.SaleOrder.CreatedAt >= dayStart
                          && i.SaleOrder.CreatedAt < dayEnd)
-                .GroupBy(i => new { i.ProductId, ProductName = i.Product != null ? i.Product.Name : string.Empty })
+                .Select(i => new
+                {
+                    i.ProductId,
+                    ProductName = i.Product != null ? i.Product.Name : string.Empty,
+                    i.Quantity
+                })
+                .ToListAsync();
+
+            var soldItems = rawLines
+                .GroupBy(i => new { i.ProductId, i.ProductName })
                 .Select(g => new
                 {
                     g.Key.ProductId,
                     g.Key.ProductName,
                     QuantitySold = g.Sum(i => i.Quantity)
                 })
-                .ToListAsync();
+                .ToList();
 
             var inventoryItems = new List<DailySummaryInventoryItem>();
             foreach (var item in soldItems)
             {
                 var inventory = await _context.Inventories
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(inv => inv.ProductId == item.ProductId
                                              && inv.LocationId == locationId);
 
@@ -113,6 +142,7 @@ namespace APICore.Services.Impls
 
             // Reutilizar o crear el cuadre del día (puede existir uno abierto)
             var dailySummary = await _context.DailySummaries
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(d => d.OrganizationId == orgId
                                        && d.LocationId == locationId
                                        && d.Date == targetDate);
