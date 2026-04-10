@@ -36,9 +36,9 @@ namespace APICore.API.Controllers
         [RequirePermission(PermissionCodes.DailySummaryView)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        public async Task<IActionResult> GetByDate([FromQuery] DateTime date)
+        public async Task<IActionResult> GetByDate([FromQuery] DateTime date, [FromQuery] int? locationId = null)
         {
-            var result = await _dailySummaryService.GetByDateAsync(date);
+            var result = await _dailySummaryService.GetByDateAsync(date, locationId);
             if (result == null)
                 return NotFound(new ApiResponse(404));
             return Ok(new ApiOkResponse(result));
@@ -47,9 +47,9 @@ namespace APICore.API.Controllers
         [HttpGet("history")]
         [RequirePermission(PermissionCodes.DailySummaryView)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetHistory([FromQuery] DateTime from, [FromQuery] DateTime to)
+        public async Task<IActionResult> GetHistory([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] int? locationId = null)
         {
-            var result = await _dailySummaryService.GetHistoryAsync(from, to);
+            var result = await _dailySummaryService.GetHistoryAsync(from, to, locationId);
             return Ok(new ApiOkResponse(result));
         }
 

@@ -189,35 +189,44 @@ namespace APICore.Services.Impls
             return await LoadAndMapAsync(dailySummary.Id);
         }
 
-        public async Task<DailySummaryResponseDto?> GetByDateAsync(DateTime date)
+        public async Task<DailySummaryResponseDto?> GetByDateAsync(DateTime date, int? locationId = null)
         {
             var orgId      = _context.CurrentOrganizationId;
-            var locationId = _context.CurrentLocationId;
+            var resolvedLocationId = ResolveLocationId(locationId);
             var targetDate = date.Date;
 
-            var summary = await _context.DailySummaries
+            var query = _context.DailySummaries
+                .IgnoreQueryFilters()
                 .Include(d => d.InventoryItems)
-                .FirstOrDefaultAsync(d => d.OrganizationId == orgId
-                                       && d.LocationId == locationId
-                                       && d.Date == targetDate);
+                .Where(d => d.OrganizationId == orgId && d.Date == targetDate);
+
+            if (resolvedLocationId > 0)
+                query = query.Where(d => d.LocationId == resolvedLocationId);
+
+            var summary = await query.FirstOrDefaultAsync();
             if (summary == null) return null;
 
             return MapToDto(summary);
         }
 
-        public async Task<List<DailySummaryResponseDto>> GetHistoryAsync(DateTime from, DateTime to)
+        public async Task<List<DailySummaryResponseDto>> GetHistoryAsync(DateTime from, DateTime to, int? locationId = null)
         {
-            var orgId      = _context.CurrentOrganizationId;
-            var locationId = _context.CurrentLocationId;
-            var fromDate   = from.Date;
-            var toDate     = to.Date.AddDays(1);
+            var orgId              = _context.CurrentOrganizationId;
+            var resolvedLocationId = ResolveLocationId(locationId);
+            var fromDate           = from.Date;
+            var toDate             = to.Date.AddDays(1);
 
-            var summaries = await _context.DailySummaries
+            var query = _context.DailySummaries
+                .IgnoreQueryFilters()
                 .Include(d => d.InventoryItems)
                 .Where(d => d.OrganizationId == orgId
-                         && d.LocationId == locationId
                          && d.Date >= fromDate
-                         && d.Date < toDate)
+                         && d.Date < toDate);
+
+            if (resolvedLocationId > 0)
+                query = query.Where(d => d.LocationId == resolvedLocationId);
+
+            var summaries = await query
                 .OrderByDescending(d => d.Date)
                 .ToListAsync();
 
@@ -385,6 +394,15 @@ namespace APICore.Services.Impls
                         StockDifference = i.StockDifference
                     }).ToList() ?? new System.Collections.Generic.List<DailySummaryInventoryItemDto>()
             };
+
+        /// <summary>
+        /// Si el usuario tiene location fija la usa siempre.
+        /// Si es Admin (CurrentLocationId &lt;= 0) usa el parámetro recibido (puede ser null → sin filtro por location).
+        /// </summary>
+        private int ResolveLocationId(int? requestedLocationId)
+            => _context.CurrentLocationId > 0
+                ? _context.CurrentLocationId
+                : (requestedLocationId ?? 0);
 
         private static void AddCashRow(TableDescriptor table, string label, decimal value)
         {
