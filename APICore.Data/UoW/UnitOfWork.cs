@@ -48,6 +48,7 @@ namespace APICore.Data.UoW
             WebPushSubscriptionRepository ??= new GenericRepository<WebPushSubscription>(_context);
             DailySummaryRepository ??= new GenericRepository<DailySummary>(_context);
             DailySummaryInventoryItemRepository ??= new GenericRepository<DailySummaryInventoryItem>(_context);
+            MetricsEventRepository ??= new GenericRepository<MetricsEvent>(_context);
         }
 
         public IGenericRepository<User> UserRepository { get; set; }
@@ -83,6 +84,7 @@ namespace APICore.Data.UoW
         public IGenericRepository<WebPushSubscription> WebPushSubscriptionRepository { get; set; }
         public IGenericRepository<DailySummary> DailySummaryRepository { get; set; }
         public IGenericRepository<DailySummaryInventoryItem> DailySummaryInventoryItemRepository { get; set; }
+        public IGenericRepository<MetricsEvent> MetricsEventRepository { get; set; }
 
         public async Task<int> CommitAsync()
         {

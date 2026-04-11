@@ -40,6 +40,7 @@ namespace APICore.Data.UoW
         IGenericRepository<WebPushSubscription> WebPushSubscriptionRepository { get; set; }
         IGenericRepository<DailySummary> DailySummaryRepository { get; set; }
         IGenericRepository<DailySummaryInventoryItem> DailySummaryInventoryItemRepository { get; set; }
+        IGenericRepository<MetricsEvent> MetricsEventRepository { get; set; }
         Task<int> CommitAsync();
         Task BeginTransactionAsync();
         Task RollbackAsync();

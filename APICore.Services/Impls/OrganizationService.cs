@@ -71,6 +71,16 @@ namespace APICore.Services.Impls
 
         private async Task DeleteOrganizationDataInOrder(int organizationId)
         {
+            await _uow.MetricsEventRepository.GetAll()
+                .IgnoreQueryFilters()
+                .Where(e => e.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
+            await _uow.DailySummaryRepository.GetAll()
+                .IgnoreQueryFilters()
+                .Where(d => d.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
             var orgLocationIds = await _uow.LocationRepository.FindBy(l => l.OrganizationId == organizationId)
                 .Select(l => l.Id)
                 .ToListAsync();
