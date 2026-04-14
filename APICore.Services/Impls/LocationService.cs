@@ -235,8 +235,9 @@ namespace APICore.Services.Impls
                 Coordinates = coordinates,
                 IsOpenNow = isOpenNow,
                 IsVerified = location.IsVerified,
-                OffersDelivery = location.OffersDelivery && isOpenNow,
-                OffersPickup = location.OffersPickup && isOpenNow,
+                // Valores de configuración en BD; el front combina con IsOpenNow para disponibilidad en este momento.
+                OffersDelivery = location.OffersDelivery,
+                OffersPickup = location.OffersPickup,
                 BusinessCategoryId = location.BusinessCategoryId,
                 BusinessCategory = location.BusinessCategory != null
                     ? new BusinessCategorySummaryDto
