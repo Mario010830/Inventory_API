@@ -22,9 +22,9 @@ namespace APICore.Common.DTO.Response
         /// <summary>Indica si el local está abierto "ahora mismo" según la hora UTC del servidor.</summary>
         public bool IsOpenNow { get; set; }
         public bool IsVerified { get; set; }
-        /// <summary>Disponible para domicilio; en respuestas API es falso si la tienda está cerrada ahora (<see cref="IsOpenNow"/>).</summary>
+        /// <summary>La ubicación ofrece servicio de domicilio (configuración). Combinar con <see cref="IsOpenNow"/> para saber si aplica en este momento.</summary>
         public bool OffersDelivery { get; set; }
-        /// <summary>Disponible para recogida; en respuestas API es falso si la tienda está cerrada ahora (<see cref="IsOpenNow"/>).</summary>
+        /// <summary>La ubicación ofrece recogida en tienda (configuración). Combinar con <see cref="IsOpenNow"/> para saber si aplica en este momento.</summary>
         public bool OffersPickup { get; set; }
         public DateTime CreatedAt { get; set; }
         /// <summary>Cantidad de productos disponibles en esta ubicación.</summary>

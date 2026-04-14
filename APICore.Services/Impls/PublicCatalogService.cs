@@ -109,8 +109,9 @@ namespace APICore.Services.Impls
                     Coordinates = coordinates,
                     IsOpenNow = isOpenNow,
                     IsVerified = l.IsVerified,
-                    OffersDelivery = l.OffersDelivery && isOpenNow,
-                    OffersPickup = l.OffersPickup && isOpenNow,
+                    // Configuración en BD; el front usa IsOpenNow para deshabilitar pedidos fuera de horario.
+                    OffersDelivery = l.OffersDelivery,
+                    OffersPickup = l.OffersPickup,
                     CreatedAt = l.CreatedAt,
                     ProductCount = invCount + elabCount,
                     HasPromo = locationsWithPromo.Contains(l.Id),

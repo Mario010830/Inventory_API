@@ -135,14 +135,14 @@ namespace APICore.Tests.Unit.PublicCatalog
 
             var a = result.First(l => l.Id == 1);
             Assert.True(a.IsVerified);
-            Assert.Equal(a.IsOpenNow && true, a.OffersDelivery);
-            Assert.Equal(a.IsOpenNow && false, a.OffersPickup);
+            Assert.True(a.OffersDelivery);
+            Assert.False(a.OffersPickup);
             Assert.True(a.CreatedAt < DateTime.UtcNow);
 
             var b = result.First(l => l.Id == 2);
             Assert.False(b.IsVerified);
-            Assert.Equal(b.IsOpenNow && false, b.OffersDelivery);
-            Assert.Equal(b.IsOpenNow && true, b.OffersPickup);
+            Assert.False(b.OffersDelivery);
+            Assert.True(b.OffersPickup);
         }
 
         [Fact]

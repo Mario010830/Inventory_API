@@ -385,7 +385,10 @@ namespace APICore.Services.Impls
 
         private async Task<string> GenerateFolioAsync(int orgId)
         {
-            var count = await _uow.SaleOrderRepository.GetAll()
+            // Debe ignorar filtros de tenant/ubicación: al crear en contexto anónimo o con
+            // ubicación distinta, el query filter de SaleOrder ocultaría el resto y el
+            // contador quedaría siempre en 0 → folios duplicados (p. ej. VENTA-0001).
+            var count = await _context.SaleOrders.IgnoreQueryFilters()
                 .Where(s => s.OrganizationId == orgId)
                 .CountAsync();
             return $"VENTA-{(count + 1):D4}";
