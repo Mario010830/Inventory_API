@@ -578,6 +578,13 @@ namespace APICore.Data
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Loan>()
+                .HasOne(l => l.PrincipalCurrency)
+                .WithMany()
+                .HasForeignKey(l => l.PrincipalCurrencyId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Loan>()
                 .Property(l => l.InterestRatePeriod)
                 .HasConversion<string>()
                 .HasDefaultValue(LoanInterestRatePeriod.annual);

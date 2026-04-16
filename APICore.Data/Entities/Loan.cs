@@ -16,7 +16,12 @@ namespace APICore.Data.Entities
         public string DebtorName { get; set; } = null!;
 
         /// <summary>Capital prestado (principal).</summary>
+        /// <remarks>El importe está expresado en la moneda <see cref="PrincipalCurrency"/> cuando existe; si no, el cliente puede usar su moneda de visualización por defecto.</remarks>
         public decimal PrincipalAmount { get; set; }
+
+        /// <summary>Moneda del capital prestado (opcional; préstamos antiguos pueden tener null).</summary>
+        public int? PrincipalCurrencyId { get; set; }
+        public Currency? PrincipalCurrency { get; set; }
 
         public string? Notes { get; set; }
 

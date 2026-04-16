@@ -7,6 +7,10 @@ namespace APICore.Common.DTO.Request
     {
         public string DebtorName { get; set; } = null!;
         public decimal PrincipalAmount { get; set; }
+
+        /// <summary>Moneda del capital (opcional). Si es null, se asigna la moneda de visualización por defecto de la org o, si no aplica, la moneda base (CUP).</summary>
+        public int? PrincipalCurrencyId { get; set; }
+
         public string? Notes { get; set; }
 
         /// <summary>Interés en % (opcional); la periodicidad la define la propiedad InterestRatePeriod.</summary>

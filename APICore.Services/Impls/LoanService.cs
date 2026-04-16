@@ -1,3 +1,4 @@
+using APICore.Common.Constants;
 using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
 using APICore.Common.Enums;
@@ -20,12 +21,21 @@ namespace APICore.Services.Impls
     {
         private readonly IUnitOfWork _uow;
         private readonly CoreDbContext _context;
+        private readonly ICurrencyService _currencyService;
+        private readonly ISettingService _settingService;
         private readonly IStringLocalizer<ILoanService> _localizer;
 
-        public LoanService(IUnitOfWork uow, CoreDbContext context, IStringLocalizer<ILoanService> localizer)
+        public LoanService(
+            IUnitOfWork uow,
+            CoreDbContext context,
+            ICurrencyService currencyService,
+            ISettingService settingService,
+            IStringLocalizer<ILoanService> localizer)
         {
             _uow = uow;
             _context = context;
+            _currencyService = currencyService;
+            _settingService = settingService;
             _localizer = localizer;
         }
 
@@ -44,11 +54,26 @@ namespace APICore.Services.Impls
             if (!LoanInterestRatePeriodParsing.TryParse(request.InterestRatePeriod, out var interestPeriod))
                 throw new LoanInvalidPrincipalBadRequestException(_localizer);
 
+            if (request.PrincipalCurrencyId.HasValue && request.PrincipalCurrencyId.Value <= 0)
+                throw new LoanInvalidPrincipalBadRequestException(_localizer);
+
+            int? principalCurrencyId;
+            if (request.PrincipalCurrencyId is { } explicitCurrencyId && explicitCurrencyId > 0)
+            {
+                await RequireActivePrincipalCurrencyAsync(orgId, explicitCurrencyId);
+                principalCurrencyId = explicitCurrencyId;
+            }
+            else
+            {
+                principalCurrencyId = await ResolveDefaultPrincipalCurrencyIdAsync(orgId);
+            }
+
             var loan = new Loan
             {
                 OrganizationId = orgId,
                 DebtorName = request.DebtorName.Trim(),
                 PrincipalAmount = request.PrincipalAmount,
+                PrincipalCurrencyId = principalCurrencyId,
                 Notes = request.Notes,
                 InterestPercent = request.InterestPercent,
                 InterestRatePeriod = interestPeriod,
@@ -95,6 +120,12 @@ namespace APICore.Services.Impls
                 loan.InterestRatePeriod = interestPeriod;
             }
 
+            if (request.PrincipalCurrencyId is int pcid && pcid > 0)
+            {
+                await RequireActivePrincipalCurrencyAsync(loan.OrganizationId, pcid);
+                loan.PrincipalCurrencyId = pcid;
+            }
+
             if (request.InterestStartDate.HasValue)
                 loan.InterestStartDate = NormalizeDateOptional(request.InterestStartDate);
 
@@ -127,6 +158,7 @@ namespace APICore.Services.Impls
         {
             var query = _uow.LoanRepository.GetAll()
                 .Include(l => l.Payments)
+                .Include(l => l.PrincipalCurrency)
                 .OrderByDescending(l => l.CreatedAt);
 
             var pageIndex = page ?? 1;
@@ -163,7 +195,40 @@ namespace APICore.Services.Impls
         {
             return await _uow.LoanRepository.GetAll()
                 .Include(l => l.Payments)
+                .Include(l => l.PrincipalCurrency)
                 .FirstOrDefaultAsync(l => l.Id == id);
+        }
+
+        /// <summary>
+        /// Moneda por defecto para el capital: moneda de visualización por defecto de la org si está activa;
+        /// si no, la moneda base (CUP) de la organización.
+        /// </summary>
+        private async Task<int?> ResolveDefaultPrincipalCurrencyIdAsync(int organizationId)
+        {
+            await _currencyService.EnsureBaseCurrencyForOrganizationAsync(organizationId);
+
+            var raw = await _settingService.GetSettingOrDefaultAsync(SettingKeys.DefaultDisplayCurrencyId, "");
+            if (int.TryParse(raw, out var displayId) && displayId > 0)
+            {
+                var display = await _context.Currencies.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == displayId && c.OrganizationId == organizationId);
+                if (display != null && display.IsActive)
+                    return display.Id;
+            }
+
+            var baseCurrency = await _context.Currencies.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.OrganizationId == organizationId && c.IsBase);
+            return baseCurrency?.Id;
+        }
+
+        private async Task RequireActivePrincipalCurrencyAsync(int organizationId, int currencyId)
+        {
+            var c = await _context.Currencies
+                .FirstOrDefaultAsync(x => x.Id == currencyId && x.OrganizationId == organizationId);
+            if (c == null)
+                throw new CurrencyNotFoundException();
+            if (!c.IsActive)
+                throw new LoanPrincipalCurrencyInactiveBadRequestException(_localizer);
         }
 
         private static DateTime? NormalizeDateOptional(DateTime? dt)
@@ -276,6 +341,8 @@ namespace APICore.Services.Impls
                 Id = loan.Id,
                 DebtorName = loan.DebtorName,
                 PrincipalAmount = loan.PrincipalAmount,
+                PrincipalCurrencyId = loan.PrincipalCurrencyId,
+                PrincipalCurrencyCode = loan.PrincipalCurrency?.Code,
                 Notes = loan.Notes,
                 InterestPercent = loan.InterestPercent,
                 InterestRatePeriod = loan.InterestRatePeriod.ToString(),

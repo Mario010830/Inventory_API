@@ -347,6 +347,13 @@
     }
   },
   {
+    "Key": "400093",
+    "LocalizedValue": {
+      "en-US": "The loan principal currency must be active.",
+      "es-ES": "La moneda del capital del préstamo debe estar activa."
+    }
+  },
+  {
     "Key": "404040",
     "LocalizedValue": {
       "en-US": "Sale order not found.",

@@ -8,6 +8,13 @@ namespace APICore.Common.DTO.Response
         public int Id { get; set; }
         public string DebtorName { get; set; } = null!;
         public decimal PrincipalAmount { get; set; }
+
+        /// <summary>Importe del capital en la moneda indicada por <see cref="PrincipalCurrencyCode"/> cuando existe.</summary>
+        public int? PrincipalCurrencyId { get; set; }
+
+        /// <summary>Código ISO de la moneda del capital (ej. USD, EUR), resuelto desde configuración de monedas.</summary>
+        public string? PrincipalCurrencyCode { get; set; }
+
         public string? Notes { get; set; }
         public decimal? InterestPercent { get; set; }
 

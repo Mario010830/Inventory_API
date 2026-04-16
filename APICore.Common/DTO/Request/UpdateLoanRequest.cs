@@ -7,6 +7,10 @@ namespace APICore.Common.DTO.Request
     {
         public string? DebtorName { get; set; }
         public decimal? PrincipalAmount { get; set; }
+
+        /// <summary>Moneda del capital. Solo actualiza si se envía un valor entero (omitir para no cambiar).</summary>
+        public int? PrincipalCurrencyId { get; set; }
+
         public string? Notes { get; set; }
         public decimal? InterestPercent { get; set; }
 
