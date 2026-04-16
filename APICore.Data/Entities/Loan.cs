@@ -1,3 +1,4 @@
+using APICore.Common.Enums;
 using System;
 using System.Collections.Generic;
 
@@ -19,8 +20,11 @@ namespace APICore.Data.Entities
 
         public string? Notes { get; set; }
 
-        /// <summary>Interés anual estimado (%). Opcional; usado para el cálculo aproximado en la API.</summary>
-        public decimal? InterestPercentPerYear { get; set; }
+        /// <summary>Porcentaje de interés; el período lo indica <see cref="InterestRatePeriod"/>.</summary>
+        public decimal? InterestPercent { get; set; }
+
+        /// <summary>Periodicidad de <see cref="InterestPercent"/> (interés simple en la estimación).</summary>
+        public LoanInterestRatePeriod InterestRatePeriod { get; set; } = LoanInterestRatePeriod.annual;
 
         /// <summary>Fecha desde la que se aplica el interés (solo fecha, UTC).</summary>
         public DateTime? InterestStartDate { get; set; }

@@ -1,5 +1,6 @@
 using APICore.Common.DTO.Request;
 using APICore.Common.DTO.Response;
+using APICore.Common.Enums;
 using APICore.Data;
 using APICore.Data.Entities;
 using APICore.Data.UoW;
@@ -37,7 +38,10 @@ namespace APICore.Services.Impls
             if (request.PrincipalAmount <= 0)
                 throw new LoanInvalidPrincipalBadRequestException(_localizer);
 
-            if (request.InterestPercentPerYear is { } rate && rate < 0)
+            if (request.InterestPercent is { } rate && rate < 0)
+                throw new LoanInvalidPrincipalBadRequestException(_localizer);
+
+            if (!LoanInterestRatePeriodParsing.TryParse(request.InterestRatePeriod, out var interestPeriod))
                 throw new LoanInvalidPrincipalBadRequestException(_localizer);
 
             var loan = new Loan
@@ -46,7 +50,8 @@ namespace APICore.Services.Impls
                 DebtorName = request.DebtorName.Trim(),
                 PrincipalAmount = request.PrincipalAmount,
                 Notes = request.Notes,
-                InterestPercentPerYear = request.InterestPercentPerYear,
+                InterestPercent = request.InterestPercent,
+                InterestRatePeriod = interestPeriod,
                 InterestStartDate = NormalizeDateOptional(request.InterestStartDate),
                 DueDatesJson = SerializeDueDates(request.DueDates),
             };
@@ -76,11 +81,18 @@ namespace APICore.Services.Impls
                 loan.DebtorName = request.DebtorName.Trim();
             if (request.Notes != null)
                 loan.Notes = request.Notes;
-            if (request.InterestPercentPerYear.HasValue)
+            if (request.InterestPercent.HasValue)
             {
-                if (request.InterestPercentPerYear.Value < 0)
+                if (request.InterestPercent.Value < 0)
                     throw new LoanInvalidPrincipalBadRequestException(_localizer);
-                loan.InterestPercentPerYear = request.InterestPercentPerYear;
+                loan.InterestPercent = request.InterestPercent;
+            }
+
+            if (request.InterestRatePeriod != null)
+            {
+                if (!LoanInterestRatePeriodParsing.TryParse(request.InterestRatePeriod, out var interestPeriod))
+                    throw new LoanInvalidPrincipalBadRequestException(_localizer);
+                loan.InterestRatePeriod = interestPeriod;
             }
 
             if (request.InterestStartDate.HasValue)
@@ -211,16 +223,30 @@ namespace APICore.Services.Impls
         }
 
         /// <summary>Interés simple sobre el saldo de capital actual, proporcional al tiempo desde InterestStartDate.</summary>
-        private static decimal EstimateInterest(decimal outstandingPrincipal, decimal annualPercent, DateTime interestStartUtc, DateTime asOfUtc)
+        private static decimal EstimateInterest(
+            decimal outstandingPrincipal,
+            decimal percent,
+            LoanInterestRatePeriod period,
+            DateTime interestStartUtc,
+            DateTime asOfUtc)
         {
-            if (outstandingPrincipal <= 0m || annualPercent <= 0m)
+            if (outstandingPrincipal <= 0m || percent <= 0m)
                 return 0m;
             var start = interestStartUtc.Date;
             var end = asOfUtc.Date;
             if (end < start)
                 return 0m;
             var days = (decimal)(end - start).TotalDays;
-            return Math.Round(outstandingPrincipal * (annualPercent / 100m) * (days / 365.25m), 2, MidpointRounding.AwayFromZero);
+            var r = percent / 100m;
+            var factor = period switch
+            {
+                LoanInterestRatePeriod.daily => days,
+                LoanInterestRatePeriod.weekly => days / 7m,
+                LoanInterestRatePeriod.monthly => days / (365.25m / 12m),
+                LoanInterestRatePeriod.annual => days / 365.25m,
+                _ => 0m
+            };
+            return Math.Round(outstandingPrincipal * r * factor, 2, MidpointRounding.AwayFromZero);
         }
 
         private LoanResponse MapToResponse(Loan loan)
@@ -229,8 +255,8 @@ namespace APICore.Services.Impls
             var outstanding = Math.Max(0m, loan.PrincipalAmount - totalPaid);
             var now = DateTime.UtcNow;
             decimal estimatedInterest = 0m;
-            if (loan.InterestPercentPerYear is > 0m && loan.InterestStartDate.HasValue)
-                estimatedInterest = EstimateInterest(outstanding, loan.InterestPercentPerYear.Value, loan.InterestStartDate.Value, now);
+            if (loan.InterestPercent is > 0m && loan.InterestStartDate.HasValue)
+                estimatedInterest = EstimateInterest(outstanding, loan.InterestPercent.Value, loan.InterestRatePeriod, loan.InterestStartDate.Value, now);
 
             var payments = loan.Payments
                 .OrderByDescending(p => p.PaidAt)
@@ -251,7 +277,8 @@ namespace APICore.Services.Impls
                 DebtorName = loan.DebtorName,
                 PrincipalAmount = loan.PrincipalAmount,
                 Notes = loan.Notes,
-                InterestPercentPerYear = loan.InterestPercentPerYear,
+                InterestPercent = loan.InterestPercent,
+                InterestRatePeriod = loan.InterestRatePeriod.ToString(),
                 InterestStartDate = loan.InterestStartDate,
                 DueDates = ParseDueDates(loan.DueDatesJson),
                 TotalPaid = totalPaid,

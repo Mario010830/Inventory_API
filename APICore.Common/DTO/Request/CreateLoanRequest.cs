@@ -9,8 +9,11 @@ namespace APICore.Common.DTO.Request
         public decimal PrincipalAmount { get; set; }
         public string? Notes { get; set; }
 
-        /// <summary>Interés anual en % (opcional).</summary>
-        public decimal? InterestPercentPerYear { get; set; }
+        /// <summary>Interés en % (opcional); la periodicidad la define la propiedad InterestRatePeriod.</summary>
+        public decimal? InterestPercent { get; set; }
+
+        /// <summary>Periodicidad del porcentaje: daily, weekly, monthly, annual (por defecto annual).</summary>
+        public string? InterestRatePeriod { get; set; }
 
         /// <summary>Fecha desde la que se devenga el interés (opcional).</summary>
         public DateTime? InterestStartDate { get; set; }

@@ -1,3 +1,4 @@
+using APICore.Common.Enums;
 using APICore.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -575,6 +576,11 @@ namespace APICore.Data
                 .WithMany()
                 .HasForeignKey(l => l.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Loan>()
+                .Property(l => l.InterestRatePeriod)
+                .HasConversion<string>()
+                .HasDefaultValue(LoanInterestRatePeriod.annual);
 
             modelBuilder.Entity<LoanPayment>()
                 .HasOne(p => p.Loan)

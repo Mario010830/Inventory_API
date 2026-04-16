@@ -9,7 +9,11 @@ namespace APICore.Common.DTO.Response
         public string DebtorName { get; set; } = null!;
         public decimal PrincipalAmount { get; set; }
         public string? Notes { get; set; }
-        public decimal? InterestPercentPerYear { get; set; }
+        public decimal? InterestPercent { get; set; }
+
+        /// <summary>Periodicidad del porcentaje: daily, weekly, monthly, annual.</summary>
+        public string InterestRatePeriod { get; set; } = "annual";
+
         public DateTime? InterestStartDate { get; set; }
         public IReadOnlyList<DateTime> DueDates { get; set; } = Array.Empty<DateTime>();
 
@@ -19,7 +23,7 @@ namespace APICore.Common.DTO.Response
         /// <summary>Capital pendiente: principal − total cobrado (no negativo).</summary>
         public decimal OutstandingPrincipal { get; set; }
 
-        /// <summary>Interés estimado sobre el saldo actual (interés simple anualizado desde InterestStartDate).</summary>
+        /// <summary>Interés estimado sobre el saldo actual (interés simple según InterestRatePeriod desde InterestStartDate).</summary>
         public decimal EstimatedInterest { get; set; }
 
         /// <summary>Saldo estimado: capital pendiente + interés estimado.</summary>
