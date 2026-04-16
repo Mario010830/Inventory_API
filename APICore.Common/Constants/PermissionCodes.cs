@@ -65,6 +65,11 @@ namespace APICore.Common.Constants
         public const string LeadUpdate = "lead.update";
         public const string LeadDelete = "lead.delete";
 
+        public const string LoanRead = "loan.read";
+        public const string LoanCreate = "loan.create";
+        public const string LoanUpdate = "loan.update";
+        public const string LoanDelete = "loan.delete";
+
         public const string SaleRead = "sale.read";
         public const string SaleCreate = "sale.create";
         public const string SaleUpdate = "sale.update";

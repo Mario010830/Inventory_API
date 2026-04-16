@@ -49,6 +49,8 @@ namespace APICore.Data.UoW
             DailySummaryRepository ??= new GenericRepository<DailySummary>(_context);
             DailySummaryInventoryItemRepository ??= new GenericRepository<DailySummaryInventoryItem>(_context);
             MetricsEventRepository ??= new GenericRepository<MetricsEvent>(_context);
+            LoanRepository ??= new GenericRepository<Loan>(_context);
+            LoanPaymentRepository ??= new GenericRepository<LoanPayment>(_context);
         }
 
         public IGenericRepository<User> UserRepository { get; set; }
@@ -85,6 +87,8 @@ namespace APICore.Data.UoW
         public IGenericRepository<DailySummary> DailySummaryRepository { get; set; }
         public IGenericRepository<DailySummaryInventoryItem> DailySummaryInventoryItemRepository { get; set; }
         public IGenericRepository<MetricsEvent> MetricsEventRepository { get; set; }
+        public IGenericRepository<Loan> LoanRepository { get; set; }
+        public IGenericRepository<LoanPayment> LoanPaymentRepository { get; set; }
 
         public async Task<int> CommitAsync()
         {

@@ -1,4 +1,5 @@
 using APICore.Common.Constants;
+using APICore.Data;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
 using APICore.Data.UoW;
@@ -20,12 +21,28 @@ namespace APICore.API.Utils
     {
         public static async Task SeedDatabaseAsync(IServiceProvider serviceProvider)
         {
-            var uow = serviceProvider.GetRequiredService<IUnitOfWork>();
-            var currencyService = serviceProvider.GetRequiredService<ICurrencyService>();
+            // Ámbito propio: CoreDbContext es scoped; así coincide con el inyectado en UnitOfWork.
+            using var scope = serviceProvider.CreateScope();
+            var sp = scope.ServiceProvider;
 
-            await SeedLocationsRolesAndPermissionsAsync(uow, currencyService);
-            await CreateDefaultUserAsync(uow);
-            await SeedDefaultTagsAsync(uow);
+            var uow = sp.GetRequiredService<IUnitOfWork>();
+            var currencyService = sp.GetRequiredService<ICurrencyService>();
+            var dbContext = sp.GetRequiredService<CoreDbContext>();
+
+            // Sin usuario HTTP el contexto queda con CurrentOrganizationId = -1; los filtros de tenant
+            // ocultan Location/Role/User y el seed creía que no existían → duplicados en cada ejecución.
+            var previousIgnoreLocation = dbContext.IgnoreLocationFilter;
+            dbContext.IgnoreLocationFilter = true;
+            try
+            {
+                await SeedLocationsRolesAndPermissionsAsync(uow, currencyService);
+                await CreateDefaultUserAsync(uow);
+                await SeedDefaultTagsAsync(uow);
+            }
+            finally
+            {
+                dbContext.IgnoreLocationFilter = previousIgnoreLocation;
+            }
         }
 
         private static async Task SeedLocationsRolesAndPermissionsAsync(IUnitOfWork uow, ICurrencyService currencyService)
@@ -124,6 +141,8 @@ namespace APICore.API.Utils
                 PermissionCodes.ContactRead, PermissionCodes.ContactCreate, PermissionCodes.ContactUpdate, PermissionCodes.ContactDelete,
 
                 PermissionCodes.LeadRead, PermissionCodes.LeadCreate, PermissionCodes.LeadUpdate, PermissionCodes.LeadDelete,
+
+                PermissionCodes.LoanRead, PermissionCodes.LoanCreate, PermissionCodes.LoanUpdate, PermissionCodes.LoanDelete,
 
                 PermissionCodes.SaleRead, PermissionCodes.SaleCreate, PermissionCodes.SaleUpdate, PermissionCodes.SaleCancel,
                 PermissionCodes.SaleReport, PermissionCodes.SaleReturnCreate,
@@ -301,6 +320,19 @@ namespace APICore.API.Utils
         {
             if (defaultOrganization.SubscriptionId.HasValue)
                 return;
+
+            var existingForOrg = await uow.SubscriptionRepository
+                .FindBy(s => s.OrganizationId == defaultOrganization.Id)
+                .OrderByDescending(s => s.Id)
+                .FirstOrDefaultAsync();
+            if (existingForOrg != null)
+            {
+                defaultOrganization.SubscriptionId = existingForOrg.Id;
+                defaultOrganization.IsActive = true;
+                uow.OrganizationRepository.Update(defaultOrganization);
+                await uow.CommitAsync();
+                return;
+            }
 
             var freePlan = await uow.PlanRepository.FindBy(p => p.Name.ToLower() == PlanNames.Free).FirstOrDefaultAsync();
             if (freePlan == null)

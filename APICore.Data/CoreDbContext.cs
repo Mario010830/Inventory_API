@@ -48,6 +48,8 @@ namespace APICore.Data
         public DbSet<MetricsEvent> MetricsEvents { get; set; }
         public DbSet<DailySummary> DailySummaries { get; set; }
         public DbSet<DailySummaryInventoryItem> DailySummaryInventoryItems { get; set; }
+        public DbSet<Loan> Loans { get; set; }
+        public DbSet<LoanPayment> LoanPayments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -567,6 +569,26 @@ namespace APICore.Data
                 IgnoreLocationFilter
                 || (CurrentLocationId > 0 && i.DailySummary != null && i.DailySummary.LocationId == CurrentLocationId)
                 || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && i.DailySummary != null && i.DailySummary.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<Loan>()
+                .HasOne(l => l.Organization)
+                .WithMany()
+                .HasForeignKey(l => l.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<LoanPayment>()
+                .HasOne(p => p.Loan)
+                .WithMany(l => l.Payments)
+                .HasForeignKey(p => p.LoanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Loan>().HasQueryFilter(l =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && l.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<LoanPayment>().HasQueryFilter(p =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && p.Loan != null && p.Loan.OrganizationId == CurrentOrganizationId));
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

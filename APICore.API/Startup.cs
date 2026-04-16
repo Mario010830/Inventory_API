@@ -92,6 +92,7 @@ namespace APICore.API
             services.AddTransient<ILocationService, LocationService>();
             services.AddTransient<IContactService, ContactService>();
             services.AddTransient<ILeadService, LeadService>();
+            services.AddTransient<ILoanService, LoanService>();
             services.AddTransient<IDashboardStatsService, DashboardStatsService>();
             services.AddTransient<ISaleOrderService, SaleOrderService>();
             services.AddTransient<ISaleReturnService, SaleReturnService>();
