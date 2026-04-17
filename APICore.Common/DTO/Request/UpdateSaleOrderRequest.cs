@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace APICore.Common.DTO.Request
 {
     /// <summary>
@@ -8,5 +10,10 @@ namespace APICore.Common.DTO.Request
         public int? ContactId { get; set; }
         public string? Notes { get; set; }
         public decimal? DiscountAmount { get; set; }
+
+        /// <summary>
+        /// Si no es null, reemplaza las líneas de pago. Lista vacía elimina todos los pagos del borrador.
+        /// </summary>
+        public List<CreateSaleOrderPaymentRequest>? Payments { get; set; }
     }
 }

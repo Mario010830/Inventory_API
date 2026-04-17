@@ -536,6 +536,48 @@
     }
   },
   {
+    "Key": "400464",
+    "LocalizedValue": {
+      "en-US": "A payment method with this name already exists.",
+      "es-ES": "Ya existe un método de pago con este nombre."
+    }
+  },
+  {
+    "Key": "400465",
+    "LocalizedValue": {
+      "en-US": "Cannot delete this payment method: it is referenced by sales. Deactivate it instead.",
+      "es-ES": "No se puede eliminar el método de pago: está referenciado en ventas. Desactívelo en su lugar."
+    }
+  },
+  {
+    "Key": "400466",
+    "LocalizedValue": {
+      "en-US": "The sum of payment amounts must match the sale total (tolerance 0.01).",
+      "es-ES": "La suma de los importes por método de pago debe coincidir con el total de la venta (tolerancia 0,01)."
+    }
+  },
+  {
+    "Key": "400467",
+    "LocalizedValue": {
+      "en-US": "At least one payment line is required to confirm the sale.",
+      "es-ES": "Se requiere al menos una línea de pago para confirmar la venta."
+    }
+  },
+  {
+    "Key": "400468",
+    "LocalizedValue": {
+      "en-US": "The payment method is inactive.",
+      "es-ES": "El método de pago está inactivo."
+    }
+  },
+  {
+    "Key": "404045",
+    "LocalizedValue": {
+      "en-US": "Payment method not found.",
+      "es-ES": "Método de pago no encontrado."
+    }
+  },
+  {
     "Key": "404404",
     "LocalizedValue": {
       "en-US": "Product image not found.",

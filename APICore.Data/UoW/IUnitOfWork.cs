@@ -43,6 +43,9 @@ namespace APICore.Data.UoW
         IGenericRepository<MetricsEvent> MetricsEventRepository { get; set; }
         IGenericRepository<Loan> LoanRepository { get; set; }
         IGenericRepository<LoanPayment> LoanPaymentRepository { get; set; }
+        IGenericRepository<CashOutflow> CashOutflowRepository { get; set; }
+        IGenericRepository<PaymentMethod> PaymentMethodRepository { get; set; }
+        IGenericRepository<SaleOrderPayment> SaleOrderPaymentRepository { get; set; }
         Task<int> CommitAsync();
         Task BeginTransactionAsync();
         Task RollbackAsync();

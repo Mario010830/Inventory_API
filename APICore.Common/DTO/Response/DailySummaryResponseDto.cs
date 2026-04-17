@@ -20,5 +20,8 @@ namespace APICore.Common.DTO.Response
         public string? Notes { get; set; }
         public bool IsClosed { get; set; }
         public List<DailySummaryInventoryItemDto> InventoryItems { get; set; } = new();
+
+        /// <summary>Retiros de caja registrados para la misma fecha y ubicación del cuadre.</summary>
+        public List<CashOutflowResponseDto> CashOutflows { get; set; } = new();
     }
 }

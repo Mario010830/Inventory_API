@@ -25,7 +25,7 @@ namespace APICore.Data.Entities
         /// <summary>Suma de SaleReturn.Total del día.</summary>
         public decimal TotalReturns { get; set; }
 
-        /// <summary>Salidas de caja manuales (por ahora 0).</summary>
+        /// <summary>Salidas de caja manuales del día (suma de <see cref="CashOutflow"/> con la misma fecha contable).</summary>
         public decimal TotalOutflows { get; set; }
 
         /// <summary>Calculado: OpeningCash + TotalSales - TotalReturns - TotalOutflows.</summary>

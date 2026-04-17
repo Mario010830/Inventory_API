@@ -21,6 +21,16 @@ namespace APICore.Common.DTO.Response
         public DateTime CreatedAt { get; set; }
         public DateTime ModifiedAt { get; set; }
         public List<SaleOrderItemResponse> Items { get; set; } = new();
+        public List<SaleOrderPaymentResponse> Payments { get; set; } = new();
+    }
+
+    public class SaleOrderPaymentResponse
+    {
+        public int Id { get; set; }
+        public int SaleOrderId { get; set; }
+        public int PaymentMethodId { get; set; }
+        public string? PaymentMethodName { get; set; }
+        public decimal Amount { get; set; }
     }
 
     public class SaleOrderItemResponse

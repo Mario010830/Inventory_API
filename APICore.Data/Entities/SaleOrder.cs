@@ -47,5 +47,6 @@ namespace APICore.Data.Entities
         public ICollection<SaleOrderItem> Items { get; set; } = new List<SaleOrderItem>();
         public ICollection<InventoryMovement> InventoryMovements { get; set; } = new List<InventoryMovement>();
         public ICollection<SaleReturn> Returns { get; set; } = new List<SaleReturn>();
+        public ICollection<SaleOrderPayment> Payments { get; set; } = new List<SaleOrderPayment>();
     }
 }

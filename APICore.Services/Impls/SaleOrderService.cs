@@ -10,6 +10,7 @@ using APICore.Services.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -17,6 +18,8 @@ namespace APICore.Services.Impls
 {
     public class SaleOrderService : ISaleOrderService
     {
+        private const decimal PaymentTotalTolerance = 0.01m;
+
         private readonly IUnitOfWork _uow;
         private readonly CoreDbContext _context;
         private readonly IStringLocalizer<ISaleOrderService> _localizer;
@@ -123,6 +126,19 @@ namespace APICore.Services.Impls
             order.Total = Math.Round(order.Subtotal - order.DiscountAmount, priceDecimals);
             order.Folio = await GenerateFolioAsync(orgId);
 
+            if (request.Payments != null && request.Payments.Count > 0)
+            {
+                await ValidatePaymentLinesAsync(orgId, order.Total, request.Payments, priceDecimals);
+                foreach (var pay in request.Payments)
+                {
+                    order.Payments.Add(new SaleOrderPayment
+                    {
+                        PaymentMethodId = pay.PaymentMethodId,
+                        Amount = Math.Round(pay.Amount, priceDecimals),
+                    });
+                }
+            }
+
             await _uow.SaleOrderRepository.AddAsync(order);
             await _uow.CommitAsync();
 
@@ -140,6 +156,13 @@ namespace APICore.Services.Impls
 
             if (order.Status == SaleOrderStatus.confirmed)
                 return order;
+
+            if (order.Payments == null || !order.Payments.Any())
+                throw new SaleOrderPaymentsRequiredBadRequestException(_localizer);
+
+            var paymentSum = order.Payments.Sum(p => p.Amount);
+            if (!PaymentTotalsMatch(order.Total, paymentSum))
+                throw new SaleOrderPaymentsMismatchTotalBadRequestException(_localizer);
 
             var allowNegative = _inventorySettings.AllowNegativeStock;
             var decimals = _inventorySettings.RoundingDecimals;
@@ -293,7 +316,7 @@ namespace APICore.Services.Impls
 
         public async Task<SaleOrder> UpdateSaleOrder(int id, UpdateSaleOrderRequest request)
         {
-            var order = await _uow.SaleOrderRepository.FirstOrDefaultAsync(s => s.Id == id);
+            var order = await LoadFullOrder(id);
             if (order == null)
                 throw new SaleOrderNotFoundException(_localizer);
 
@@ -315,6 +338,27 @@ namespace APICore.Services.Impls
                 order.Total = Math.Round(order.Subtotal - order.DiscountAmount, _inventorySettings.PriceRoundingDecimals);
             }
 
+            if (request.Payments != null)
+            {
+                var priceDecimals = _inventorySettings.PriceRoundingDecimals;
+                foreach (var p in order.Payments.ToList())
+                    _context.SaleOrderPayments.Remove(p);
+                order.Payments.Clear();
+
+                if (request.Payments.Count > 0)
+                {
+                    await ValidatePaymentLinesAsync(order.OrganizationId, order.Total, request.Payments, priceDecimals);
+                    foreach (var pay in request.Payments)
+                    {
+                        order.Payments.Add(new SaleOrderPayment
+                        {
+                            PaymentMethodId = pay.PaymentMethodId,
+                            Amount = Math.Round(pay.Amount, priceDecimals),
+                        });
+                    }
+                }
+            }
+
             _uow.SaleOrderRepository.Update(order);
             await _uow.CommitAsync();
 
@@ -331,8 +375,11 @@ namespace APICore.Services.Impls
 
         public async Task<PaginatedList<SaleOrder>> GetAllSaleOrders(int? page, int? perPage, string? status, string? sortOrder)
         {
-            var query = _uow.SaleOrderRepository
-                .GetAllIncluding(s => s.Items, s => s.Contact, s => s.Location);
+            IQueryable<SaleOrder> query = _context.SaleOrders
+                .Include(s => s.Items).ThenInclude(i => i.Product)
+                .Include(s => s.Payments).ThenInclude(p => p.PaymentMethod)
+                .Include(s => s.Contact)
+                .Include(s => s.Location);
 
             if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<SaleOrderStatus>(status, true, out var statusEnum))
                 query = query.Where(s => s.Status == statusEnum);
@@ -378,9 +425,38 @@ namespace APICore.Services.Impls
             return await _context.SaleOrders
                 .Include(s => s.Items)
                     .ThenInclude(i => i.Product)
+                .Include(s => s.Payments)
+                    .ThenInclude(p => p.PaymentMethod)
                 .Include(s => s.Contact)
                 .Include(s => s.Location)
                 .FirstOrDefaultAsync(s => s.Id == id);
+        }
+
+        private static bool PaymentTotalsMatch(decimal orderTotal, decimal paymentsSum) =>
+            Math.Abs(orderTotal - paymentsSum) <= PaymentTotalTolerance;
+
+        private async Task ValidatePaymentLinesAsync(int organizationId, decimal orderTotal, List<CreateSaleOrderPaymentRequest> lines, int priceDecimals)
+        {
+            if (lines == null || lines.Count == 0)
+                return;
+
+            var methodIds = lines.Select(l => l.PaymentMethodId).Distinct().ToList();
+            var methods = await _context.PaymentMethods.IgnoreQueryFilters()
+                .Where(pm => methodIds.Contains(pm.Id) && pm.OrganizationId == organizationId)
+                .ToListAsync();
+
+            if (methods.Count != methodIds.Count)
+                throw new PaymentMethodNotFoundException(_localizer);
+
+            foreach (var pm in methods)
+            {
+                if (!pm.IsActive)
+                    throw new PaymentMethodInactiveBadRequestException(_localizer);
+            }
+
+            var sum = lines.Sum(l => Math.Round(l.Amount, priceDecimals));
+            if (!PaymentTotalsMatch(orderTotal, sum))
+                throw new SaleOrderPaymentsMismatchTotalBadRequestException(_localizer);
         }
 
         private async Task<string> GenerateFolioAsync(int orgId)

@@ -20,6 +20,11 @@ namespace APICore.Common.DTO.Request
         [Required]
         [MinLength(1)]
         public List<CreateSaleOrderItemRequest> Items { get; set; } = new();
+
+        /// <summary>
+        /// Reparto por método de pago. Opcional en borrador; si se envía, la suma debe coincidir con el total (tolerancia 0,01).
+        /// </summary>
+        public List<CreateSaleOrderPaymentRequest>? Payments { get; set; }
     }
 
     public class CreateSaleOrderItemRequest

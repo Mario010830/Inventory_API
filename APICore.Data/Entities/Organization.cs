@@ -28,5 +28,6 @@ namespace APICore.Data.Entities
         public virtual ICollection<Supplier> Suppliers { get; set; } = new List<Supplier>();
         public virtual ICollection<Currency> Currencies { get; set; } = new List<Currency>();
         public virtual ICollection<Role> Roles { get; set; } = new List<Role>();
+        public virtual ICollection<PaymentMethod> PaymentMethods { get; set; } = new List<PaymentMethod>();
     }
 }

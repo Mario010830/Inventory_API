@@ -51,6 +51,9 @@ namespace APICore.Data
         public DbSet<DailySummaryInventoryItem> DailySummaryInventoryItems { get; set; }
         public DbSet<Loan> Loans { get; set; }
         public DbSet<LoanPayment> LoanPayments { get; set; }
+        public DbSet<PaymentMethod> PaymentMethods { get; set; }
+        public DbSet<SaleOrderPayment> SaleOrderPayments { get; set; }
+        public DbSet<CashOutflow> CashOutflows { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -165,6 +168,28 @@ namespace APICore.Data
                 .WithOne(r => r.SaleOrder)
                 .HasForeignKey(r => r.SaleOrderId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleOrder>()
+                .HasMany(s => s.Payments)
+                .WithOne(p => p.SaleOrder)
+                .HasForeignKey(p => p.SaleOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PaymentMethod>()
+                .HasOne(pm => pm.Organization)
+                .WithMany(o => o.PaymentMethods)
+                .HasForeignKey(pm => pm.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleOrderPayment>()
+                .HasOne(p => p.PaymentMethod)
+                .WithMany(pm => pm.SaleOrderPayments)
+                .HasForeignKey(p => p.PaymentMethodId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleOrderPayment>()
+                .Property(p => p.Amount)
+                .HasPrecision(18, 2);
 
             // SaleOrderItem
             modelBuilder.Entity<SaleOrderItem>()
@@ -402,6 +427,9 @@ namespace APICore.Data
             modelBuilder.Entity<ProductCategory>().HasQueryFilter(c =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && c.OrganizationId == CurrentOrganizationId));
+            modelBuilder.Entity<PaymentMethod>().HasQueryFilter(pm =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && pm.OrganizationId == CurrentOrganizationId));
             modelBuilder.Entity<Promotion>().HasQueryFilter(p =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && p.OrganizationId == CurrentOrganizationId));
@@ -437,6 +465,11 @@ namespace APICore.Data
                 IgnoreLocationFilter
                 || (CurrentLocationId > 0 && i.SaleOrder != null && i.SaleOrder.LocationId == CurrentLocationId)
                 || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && i.SaleOrder != null && i.SaleOrder.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<SaleOrderPayment>().HasQueryFilter(p =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && p.SaleOrder != null && p.SaleOrder.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && p.SaleOrder != null && p.SaleOrder.OrganizationId == CurrentOrganizationId));
 
             modelBuilder.Entity<SaleReturn>().HasQueryFilter(r =>
                 IgnoreLocationFilter
@@ -570,6 +603,36 @@ namespace APICore.Data
                 IgnoreLocationFilter
                 || (CurrentLocationId > 0 && i.DailySummary != null && i.DailySummary.LocationId == CurrentLocationId)
                 || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && i.DailySummary != null && i.DailySummary.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<CashOutflow>()
+                .HasOne(c => c.Organization)
+                .WithMany()
+                .HasForeignKey(c => c.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<CashOutflow>()
+                .HasOne(c => c.Location)
+                .WithMany()
+                .HasForeignKey(c => c.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<CashOutflow>()
+                .HasOne(c => c.User)
+                .WithMany()
+                .HasForeignKey(c => c.UserId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<CashOutflow>()
+                .Property(c => c.Date)
+                .HasColumnType("date");
+            modelBuilder.Entity<CashOutflow>()
+                .Property(c => c.Amount)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CashOutflow>()
+                .HasIndex(c => new { c.OrganizationId, c.LocationId, c.Date });
+
+            modelBuilder.Entity<CashOutflow>().HasQueryFilter(c =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && c.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && c.OrganizationId == CurrentOrganizationId));
 
             modelBuilder.Entity<Loan>()
                 .HasOne(l => l.Organization)

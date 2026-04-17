@@ -125,11 +125,17 @@ namespace APICore.API.Utils
                 .ForMember(d => d.CreatedAt, opts => opts.Ignore())
                 .ForMember(d => d.ModifiedAt, opts => opts.Ignore());
 
+            CreateMap<PaymentMethod, PaymentMethodResponse>();
+
+            CreateMap<SaleOrderPayment, SaleOrderPaymentResponse>()
+                .ForMember(d => d.PaymentMethodName, opts => opts.MapFrom(s => s.PaymentMethod != null ? s.PaymentMethod.Name : null));
+
             CreateMap<SaleOrder, SaleOrderResponse>()
                 .ForMember(d => d.Status, opts => opts.MapFrom(s => s.Status.ToString()))
                 .ForMember(d => d.LocationName, opts => opts.MapFrom(s => s.Location != null ? s.Location.Name : null))
                 .ForMember(d => d.ContactName, opts => opts.MapFrom(s => s.Contact != null ? s.Contact.Name : null))
-                .ForMember(d => d.Items, opts => opts.MapFrom(s => s.Items));
+                .ForMember(d => d.Items, opts => opts.MapFrom(s => s.Items))
+                .ForMember(d => d.Payments, opts => opts.MapFrom(s => s.Payments));
 
             CreateMap<SaleOrderItem, SaleOrderItemResponse>()
                 .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null))

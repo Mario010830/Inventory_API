@@ -82,6 +82,13 @@ namespace APICore.Services.Impls
                          && r.CreatedAt < dayEnd)
                 .SumAsync(r => (decimal?)r.Total) ?? 0m;
 
+            var totalOutflows = await _context.CashOutflows
+                .IgnoreQueryFilters()
+                .Where(c => c.LocationId == locationId
+                         && c.OrganizationId == orgId
+                         && c.Date == targetDate)
+                .SumAsync(c => (decimal?)c.Amount) ?? 0m;
+
             // --- Armar InventoryItems por producto vendido ---
             // Se obtienen datos planos primero para evitar problemas de traducción EF con GroupBy + navegación
             var rawLines = await _context.SaleOrderItems
@@ -134,7 +141,7 @@ namespace APICore.Services.Impls
             }
 
             // --- Calcular campos derivados ---
-            var expectedCash = request.OpeningCash + totalSales - totalReturns;
+            var expectedCash = request.OpeningCash + totalSales - totalReturns - totalOutflows;
             var difference   = request.ActualCash - expectedCash;
             var status = difference == 0m
                 ? DailySummaryStatus.Balanced
@@ -162,7 +169,7 @@ namespace APICore.Services.Impls
             dailySummary.OpeningCash    = request.OpeningCash;
             dailySummary.TotalSales     = totalSales;
             dailySummary.TotalReturns   = totalReturns;
-            dailySummary.TotalOutflows  = 0m;
+            dailySummary.TotalOutflows  = totalOutflows;
             dailySummary.ExpectedCash   = expectedCash;
             dailySummary.ActualCash     = request.ActualCash;
             dailySummary.Difference     = difference;
@@ -206,7 +213,7 @@ namespace APICore.Services.Impls
             var summary = await query.FirstOrDefaultAsync();
             if (summary == null) return null;
 
-            return MapToDto(summary);
+            return await MapToDtoAsync(summary);
         }
 
         public async Task<List<DailySummaryResponseDto>> GetHistoryAsync(DateTime from, DateTime to, int? locationId = null)
@@ -230,7 +237,10 @@ namespace APICore.Services.Impls
                 .OrderByDescending(d => d.Date)
                 .ToListAsync();
 
-            return summaries.Select(MapToDto).ToList();
+            var result = new List<DailySummaryResponseDto>();
+            foreach (var s in summaries)
+                result.Add(await MapToDtoAsync(s));
+            return result;
         }
 
         public async Task<byte[]> ExportCsvAsync(DateTime date)
@@ -253,6 +263,12 @@ namespace APICore.Services.Impls
             sb.AppendLine($"Total ventas;{summary.TotalSales:F2}");
             sb.AppendLine($"Total devoluciones;{summary.TotalReturns:F2}");
             sb.AppendLine($"Salidas manuales;{summary.TotalOutflows:F2}");
+            if (summary.CashOutflows.Count > 0)
+            {
+                sb.AppendLine("Detalle retiros;Importe;Notas");
+                foreach (var o in summary.CashOutflows)
+                    sb.AppendLine($"Retiro #{o.Id};{o.Amount:F2};{(o.Notes ?? "").Replace(";", ",")}");
+            }
             sb.AppendLine($"Efectivo esperado;{summary.ExpectedCash:F2}");
             sb.AppendLine($"Efectivo contado;{summary.ActualCash:F2}");
             sb.AppendLine($"Diferencia;{summary.Difference:F2}");
@@ -314,6 +330,16 @@ namespace APICore.Services.Impls
                             AddCashRow(table, "Total ventas",        summary.TotalSales);
                             AddCashRow(table, "Total devoluciones",  summary.TotalReturns);
                             AddCashRow(table, "Salidas manuales",    summary.TotalOutflows);
+                            if (summary.CashOutflows.Count > 0)
+                            {
+                                foreach (var o in summary.CashOutflows)
+                                {
+                                    var label = string.IsNullOrEmpty(o.Notes)
+                                        ? $"  Retiro #{o.Id}"
+                                        : $"  Retiro: {o.Notes}";
+                                    AddCashRow(table, label, o.Amount);
+                                }
+                            }
                             AddCashRow(table, "Efectivo esperado",   summary.ExpectedCash);
                             AddCashRow(table, "Efectivo contado",    summary.ActualCash);
                             AddCashRow(table, "Diferencia",          summary.Difference);
@@ -363,11 +389,30 @@ namespace APICore.Services.Impls
             var summary = await _context.DailySummaries
                 .Include(d => d.InventoryItems)
                 .FirstAsync(d => d.Id == id);
-            return MapToDto(summary);
+            return await MapToDtoAsync(summary);
         }
 
-        private static DailySummaryResponseDto MapToDto(DailySummary d) =>
-            new DailySummaryResponseDto
+        private async Task<DailySummaryResponseDto> MapToDtoAsync(DailySummary d)
+        {
+            var outflows = await _context.CashOutflows
+                .IgnoreQueryFilters()
+                .Where(c => c.OrganizationId == d.OrganizationId
+                         && c.LocationId == d.LocationId
+                         && c.Date == d.Date)
+                .OrderBy(c => c.Id)
+                .Select(c => new CashOutflowResponseDto
+                {
+                    Id = c.Id,
+                    Date = c.Date,
+                    LocationId = c.LocationId,
+                    Amount = c.Amount,
+                    Notes = c.Notes,
+                    UserId = c.UserId,
+                    CreatedAt = c.CreatedAt,
+                })
+                .ToListAsync();
+
+            return new DailySummaryResponseDto
             {
                 Id             = d.Id,
                 Date           = d.Date,
@@ -383,6 +428,7 @@ namespace APICore.Services.Impls
                 Status         = d.Status,
                 Notes          = d.Notes,
                 IsClosed       = d.IsClosed,
+                CashOutflows   = outflows,
                 InventoryItems = d.InventoryItems?
                     .Select(i => new DailySummaryInventoryItemDto
                     {
@@ -394,6 +440,7 @@ namespace APICore.Services.Impls
                         StockDifference = i.StockDifference
                     }).ToList() ?? new System.Collections.Generic.List<DailySummaryInventoryItemDto>()
             };
+        }
 
         /// <summary>
         /// Si el usuario tiene location fija la usa siempre.

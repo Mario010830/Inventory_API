@@ -144,6 +144,8 @@ namespace APICore.API.Utils
 
                 PermissionCodes.LoanRead, PermissionCodes.LoanCreate, PermissionCodes.LoanUpdate, PermissionCodes.LoanDelete,
 
+                PermissionCodes.PaymentMethodRead, PermissionCodes.PaymentMethodCreate, PermissionCodes.PaymentMethodUpdate, PermissionCodes.PaymentMethodDelete,
+
                 PermissionCodes.SaleRead, PermissionCodes.SaleCreate, PermissionCodes.SaleUpdate, PermissionCodes.SaleCancel,
                 PermissionCodes.SaleReport, PermissionCodes.SaleReturnCreate,
                 PermissionCodes.TagRead, PermissionCodes.TagCreate, PermissionCodes.TagUpdate, PermissionCodes.TagDelete,
@@ -179,6 +181,8 @@ namespace APICore.API.Utils
             await uow.CommitAsync();
 
             await currencyService.EnsureBaseCurrencyForOrganizationAsync(defaultOrganization.Id);
+
+            await SeedDefaultPaymentMethodsAsync(uow, defaultOrganization.Id, now);
 
             await SeedBusinessCategoriesAsync(uow, now);
 
@@ -356,6 +360,34 @@ namespace APICore.API.Utils
             defaultOrganization.SubscriptionId = subscription.Id;
             defaultOrganization.IsActive = true;
             uow.OrganizationRepository.Update(defaultOrganization);
+            await uow.CommitAsync();
+        }
+
+        private static async Task SeedDefaultPaymentMethodsAsync(IUnitOfWork uow, int organizationId, DateTime now)
+        {
+            var any = await uow.PaymentMethodRepository.FindBy(pm => pm.OrganizationId == organizationId).AnyAsync();
+            if (any)
+                return;
+
+            var defaults = new[]
+            {
+                new { Name = "Efectivo", SortOrder = 0 },
+                new { Name = "Transferencia", SortOrder = 1 },
+                new { Name = "Zelle", SortOrder = 2 },
+            };
+            foreach (var d in defaults)
+            {
+                await uow.PaymentMethodRepository.AddAsync(new PaymentMethod
+                {
+                    OrganizationId = organizationId,
+                    Name = d.Name,
+                    SortOrder = d.SortOrder,
+                    IsActive = true,
+                    CreatedAt = now,
+                    ModifiedAt = now,
+                });
+            }
+
             await uow.CommitAsync();
         }
 

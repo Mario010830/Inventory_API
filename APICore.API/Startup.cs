@@ -84,6 +84,7 @@ namespace APICore.API
             services.AddTransient<APICore.API.Services.IPromotionPushService, APICore.API.Services.PromotionPushService>();
             services.AddTransient<IProductService, ProductService>();
             services.AddTransient<IProductCategoryService, ProductCategoryService>();
+            services.AddTransient<IPaymentMethodService, PaymentMethodService>();
             services.AddTransient<IInventoryService, InventoryService>();
             services.AddTransient<IInventoryMovementService, InventoryMovementService>();
             services.AddTransient<ISupplierService, SupplierService>();
@@ -109,6 +110,7 @@ namespace APICore.API
             services.AddTransient<IMetricsService, MetricsService>();
             services.AddTransient<ICatalogMetricsTrackingService, CatalogMetricsTrackingService>();
             services.AddTransient<IDailySummaryService, DailySummaryService>();
+            services.AddTransient<ICashOutflowService, CashOutflowService>();
 
             services.AddRagServices(Configuration);
 
