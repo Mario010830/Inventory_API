@@ -9,5 +9,8 @@ namespace APICore.Common.DTO.Request
         public string Name { get; set; } = null!;
 
         public int SortOrder { get; set; }
+
+        [MaxLength(120)]
+        public string? InstrumentReference { get; set; }
     }
 }

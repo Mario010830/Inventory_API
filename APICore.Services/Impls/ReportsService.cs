@@ -16,7 +16,7 @@ using QuestPDF.Infrastructure;
 
 namespace APICore.Services.Impls
 {
-    public class ReportsService : IReportsService
+    public partial class ReportsService : IReportsService
     {
         private sealed class SalesOrderExportRow
         {
@@ -75,6 +75,33 @@ namespace APICore.Services.Impls
                 query = query.Where(o => o.CreatedAt < toExclusive.Value);
 
             return query;
+        }
+
+        private IQueryable<SaleOrderItem> ConfirmedSaleLineItemsQuery(DateTime? dateFrom, DateTime? dateTo, int? locationId)
+        {
+            var (from, toExclusive) = NormalizeDateRange(dateFrom, dateTo);
+            var q = _uow.SaleOrderItemRepository
+                .GetAllIncluding(i => i.SaleOrder!, i => i.Product!)
+                .AsNoTracking()
+                .Where(i => i.SaleOrder != null && i.SaleOrder.Status == SaleOrderStatus.confirmed);
+
+            if (locationId.HasValue)
+                q = q.Where(i => i.SaleOrder!.LocationId == locationId.Value);
+            if (from.HasValue)
+                q = q.Where(i => i.SaleOrder!.CreatedAt >= from.Value);
+            if (toExclusive.HasValue)
+                q = q.Where(i => i.SaleOrder!.CreatedAt < toExclusive.Value);
+
+            return q;
+        }
+
+        private static (int Page, int PageSize) ClampSalesReportPaging(int page, int pageSize)
+        {
+            if (pageSize > 100)
+                pageSize = 100;
+            if (page < 1)
+                page = 1;
+            return (page, pageSize);
         }
 
         private async Task<List<SalesOrderExportRow>> LoadSalesOrdersExportRowsAsync(DateTime? dateFrom, DateTime? dateTo, int? locationId)

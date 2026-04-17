@@ -128,7 +128,8 @@ namespace APICore.API.Utils
             CreateMap<PaymentMethod, PaymentMethodResponse>();
 
             CreateMap<SaleOrderPayment, SaleOrderPaymentResponse>()
-                .ForMember(d => d.PaymentMethodName, opts => opts.MapFrom(s => s.PaymentMethod != null ? s.PaymentMethod.Name : null));
+                .ForMember(d => d.PaymentMethodName, opts => opts.MapFrom(s => s.PaymentMethod != null ? s.PaymentMethod.Name : null))
+                .ForMember(d => d.PaymentMethodInstrumentReference, opts => opts.MapFrom(s => s.PaymentMethod != null ? s.PaymentMethod.InstrumentReference : null));
 
             CreateMap<SaleOrder, SaleOrderResponse>()
                 .ForMember(d => d.Status, opts => opts.MapFrom(s => s.Status.ToString()))

@@ -9,5 +9,8 @@ namespace APICore.Common.DTO.Request
 
         [Range(0.01, double.MaxValue)]
         public decimal Amount { get; set; }
+
+        [MaxLength(120)]
+        public string? Reference { get; set; }
     }
 }

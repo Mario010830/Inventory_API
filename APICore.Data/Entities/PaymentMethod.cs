@@ -11,6 +11,13 @@ namespace APICore.Data.Entities
         [Required]
         public string Name { get; set; } = null!;
 
+        /// <summary>
+        /// Identificador de la cuenta/tarjeta predefinida (p. ej. últimos 4, CLABE enmascarada).
+        /// Permite varias filas con el mismo <see cref="Name"/> si difiere la referencia. No almacenar PAN completo.
+        /// </summary>
+        [MaxLength(120)]
+        public string? InstrumentReference { get; set; }
+
         public int SortOrder { get; set; }
 
         public bool IsActive { get; set; } = true;

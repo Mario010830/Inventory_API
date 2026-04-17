@@ -62,6 +62,132 @@ namespace APICore.API.Controllers
             return Ok(new ApiOkResponse(response));
         }
 
+        /// <summary>Resumen de ventas (totales y series diarias, sin listado de tickets).</summary>
+        [HttpGet("sales/summary")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetSalesSummaryReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null)
+        {
+            var response = await _reportsService.GetSalesSummaryReportAsync(dateFrom, dateTo, locationId);
+            return Ok(new ApiOkResponse(response));
+        }
+
+        /// <summary>Ventas por artículo (líneas confirmadas, paginado).</summary>
+        [HttpGet("sales/by-product")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetSalesByProductReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            var response = await _reportsService.GetSalesByProductReportAsync(dateFrom, dateTo, locationId, page, pageSize);
+            return Ok(new ApiOkResponse(response));
+        }
+
+        /// <summary>Ventas por categoría de producto.</summary>
+        [HttpGet("sales/by-category")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetSalesByCategoryReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null)
+        {
+            var response = await _reportsService.GetSalesByCategoryReportAsync(dateFrom, dateTo, locationId);
+            return Ok(new ApiOkResponse(response));
+        }
+
+        /// <summary>Ventas por empleado (usuario que confirma la venta).</summary>
+        [HttpGet("sales/by-employee")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetSalesByEmployeeReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null)
+        {
+            var response = await _reportsService.GetSalesByEmployeeReportAsync(dateFrom, dateTo, locationId);
+            return Ok(new ApiOkResponse(response));
+        }
+
+        /// <summary>Ventas por método de pago (incluye referencia de instrumento predefinida).</summary>
+        [HttpGet("sales/by-payment")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetSalesByPaymentReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null)
+        {
+            var response = await _reportsService.GetSalesByPaymentReportAsync(dateFrom, dateTo, locationId);
+            return Ok(new ApiOkResponse(response));
+        }
+
+        /// <summary>Recibos (ventas confirmadas, paginado; búsqueda opcional por folio).</summary>
+        [HttpGet("sales/receipts")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetReceiptsReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null,
+            [FromQuery] string? folioContains = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            var response = await _reportsService.GetReceiptsReportAsync(dateFrom, dateTo, locationId, folioContains, page, pageSize);
+            return Ok(new ApiOkResponse(response));
+        }
+
+        /// <summary>Placeholder: modificadores de artículo no existen en el modelo actual.</summary>
+        [HttpGet("sales/by-modifier")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetSalesByModifierReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null)
+        {
+            var response = await _reportsService.GetSalesByModifierReportAsync(dateFrom, dateTo, locationId);
+            return Ok(new ApiOkResponse(response));
+        }
+
+        /// <summary>Descuentos en cabecera, en líneas y por promoción.</summary>
+        [HttpGet("sales/discounts")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetSalesDiscountsReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null)
+        {
+            var response = await _reportsService.GetSalesDiscountsReportAsync(dateFrom, dateTo, locationId);
+            return Ok(new ApiOkResponse(response));
+        }
+
+        /// <summary>Placeholder: impuestos no modelados en ventas.</summary>
+        [HttpGet("sales/taxes")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetSalesTaxesReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null)
+        {
+            var response = await _reportsService.GetSalesTaxesReportAsync(dateFrom, dateTo, locationId);
+            return Ok(new ApiOkResponse(response));
+        }
+
+        /// <summary>Caja: retiros registrados y desglose por método de pago en el periodo.</summary>
+        [HttpGet("sales/cash-register")]
+        [HttpGet("sales/caja")]
+        [RequirePermission(PermissionCodes.SaleReport)]
+        public async Task<IActionResult> GetCashRegisterReport(
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int? locationId = null)
+        {
+            var response = await _reportsService.GetCashRegisterReportAsync(dateFrom, dateTo, locationId);
+            return Ok(new ApiOkResponse(response));
+        }
+
         [HttpGet("inventory")]
         [RequirePermission(PermissionCodes.InventoryRead)]
         public async Task<IActionResult> GetInventoryReport(

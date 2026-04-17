@@ -30,7 +30,9 @@ namespace APICore.Common.DTO.Response
         public int SaleOrderId { get; set; }
         public int PaymentMethodId { get; set; }
         public string? PaymentMethodName { get; set; }
+        public string? PaymentMethodInstrumentReference { get; set; }
         public decimal Amount { get; set; }
+        public string? Reference { get; set; }
     }
 
     public class SaleOrderItemResponse

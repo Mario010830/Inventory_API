@@ -135,6 +135,7 @@ namespace APICore.Services.Impls
                     {
                         PaymentMethodId = pay.PaymentMethodId,
                         Amount = Math.Round(pay.Amount, priceDecimals),
+                        Reference = NormalizePaymentReference(pay.Reference),
                     });
                 }
             }
@@ -354,6 +355,7 @@ namespace APICore.Services.Impls
                         {
                             PaymentMethodId = pay.PaymentMethodId,
                             Amount = Math.Round(pay.Amount, priceDecimals),
+                            Reference = NormalizePaymentReference(pay.Reference),
                         });
                     }
                 }
@@ -434,6 +436,14 @@ namespace APICore.Services.Impls
 
         private static bool PaymentTotalsMatch(decimal orderTotal, decimal paymentsSum) =>
             Math.Abs(orderTotal - paymentsSum) <= PaymentTotalTolerance;
+
+        private static string? NormalizePaymentReference(string? reference)
+        {
+            if (string.IsNullOrWhiteSpace(reference))
+                return null;
+            var t = reference.Trim();
+            return t.Length > 120 ? t[..120] : t;
+        }
 
         private async Task ValidatePaymentLinesAsync(int organizationId, decimal orderTotal, List<CreateSaleOrderPaymentRequest> lines, int priceDecimals)
         {

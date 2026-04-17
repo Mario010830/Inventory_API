@@ -181,6 +181,10 @@ namespace APICore.Data
                 .HasForeignKey(pm => pm.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<PaymentMethod>()
+                .Property(pm => pm.InstrumentReference)
+                .HasMaxLength(120);
+
             modelBuilder.Entity<SaleOrderPayment>()
                 .HasOne(p => p.PaymentMethod)
                 .WithMany(pm => pm.SaleOrderPayments)
@@ -190,6 +194,10 @@ namespace APICore.Data
             modelBuilder.Entity<SaleOrderPayment>()
                 .Property(p => p.Amount)
                 .HasPrecision(18, 2);
+
+            modelBuilder.Entity<SaleOrderPayment>()
+                .Property(p => p.Reference)
+                .HasMaxLength(120);
 
             // SaleOrderItem
             modelBuilder.Entity<SaleOrderItem>()

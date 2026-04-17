@@ -538,8 +538,8 @@
   {
     "Key": "400464",
     "LocalizedValue": {
-      "en-US": "A payment method with this name already exists.",
-      "es-ES": "Ya existe un método de pago con este nombre."
+      "en-US": "A payment method with this name and the same account or card reference already exists.",
+      "es-ES": "Ya existe un método de pago con el mismo nombre y la misma referencia de cuenta o tarjeta."
     }
   },
   {

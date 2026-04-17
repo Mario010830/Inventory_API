@@ -33,14 +33,15 @@ namespace APICore.Services.Impls
                 throw new UnauthorizedException(_localizer);
 
             var name = request.Name.Trim();
-            var exists = await _uow.PaymentMethodRepository.FindAllAsync(pm => pm.OrganizationId == orgId && pm.Name == name);
-            if (exists != null && exists.Count > 0)
+            var instrRef = NormalizeInstrumentReference(request.InstrumentReference);
+            if (await PaymentMethodNameAndRefExistsAsync(orgId, name, instrRef, excludeId: null))
                 throw new PaymentMethodNameInUseBadRequestException(_localizer);
 
             var entity = new PaymentMethod
             {
                 OrganizationId = orgId,
                 Name = name,
+                InstrumentReference = instrRef,
                 SortOrder = request.SortOrder,
                 IsActive = true,
             };
@@ -97,17 +98,20 @@ namespace APICore.Services.Impls
             if (old == null)
                 throw new PaymentMethodNotFoundException(_localizer);
 
-            if (!string.IsNullOrWhiteSpace(request.Name))
-            {
-                var name = request.Name.Trim();
-                var orgId = _context.CurrentOrganizationId;
-                var exists = await _uow.PaymentMethodRepository.FindAllAsync(pm =>
-                    pm.OrganizationId == orgId && pm.Name == name && pm.Id != id);
-                if (exists != null && exists.Count > 0)
-                    throw new PaymentMethodNameInUseBadRequestException(_localizer);
+            var orgId = _context.CurrentOrganizationId;
 
-                old.Name = name;
-            }
+            var newName = !string.IsNullOrWhiteSpace(request.Name) ? request.Name.Trim() : old.Name;
+            var newInstr = request.InstrumentReference != null
+                ? NormalizeInstrumentReference(request.InstrumentReference)
+                : NormalizeInstrumentReference(old.InstrumentReference);
+
+            if (await PaymentMethodNameAndRefExistsAsync(orgId, newName, newInstr, excludeId: id))
+                throw new PaymentMethodNameInUseBadRequestException(_localizer);
+
+            if (!string.IsNullOrWhiteSpace(request.Name))
+                old.Name = newName;
+            if (request.InstrumentReference != null)
+                old.InstrumentReference = newInstr;
 
             if (request.SortOrder.HasValue)
                 old.SortOrder = request.SortOrder.Value;
@@ -116,6 +120,33 @@ namespace APICore.Services.Impls
 
             _uow.PaymentMethodRepository.Update(old);
             await _uow.CommitAsync();
+        }
+
+        private static string? NormalizeInstrumentReference(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+            var t = value.Trim();
+            return t.Length > 120 ? t[..120] : t;
+        }
+
+        private async Task<bool> PaymentMethodNameAndRefExistsAsync(int orgId, string name, string? instrumentRef, int? excludeId)
+        {
+            var list = await _uow.PaymentMethodRepository.FindAllAsync(pm =>
+                pm.OrganizationId == orgId &&
+                pm.Name == name &&
+                (excludeId == null || pm.Id != excludeId.Value));
+
+            if (list == null || list.Count == 0)
+                return false;
+
+            foreach (var pm in list)
+            {
+                if (NormalizeInstrumentReference(pm.InstrumentReference) == instrumentRef)
+                    return true;
+            }
+
+            return false;
         }
     }
 }
