@@ -122,6 +122,34 @@ namespace APICore.Services.Impls
             await _uow.CommitAsync();
         }
 
+        public async Task EnsureCashPaymentMethodExistsAsync(int organizationId)
+        {
+            if (organizationId <= 0)
+                return;
+
+            const string cashName = "Efectivo";
+            var hasPlainCash = await _context.PaymentMethods.IgnoreQueryFilters()
+                .AnyAsync(pm => pm.OrganizationId == organizationId
+                    && pm.Name == cashName
+                    && pm.InstrumentReference == null);
+
+            if (hasPlainCash)
+                return;
+
+            var now = DateTime.UtcNow;
+            await _uow.PaymentMethodRepository.AddAsync(new PaymentMethod
+            {
+                OrganizationId = organizationId,
+                Name = cashName,
+                InstrumentReference = null,
+                SortOrder = 0,
+                IsActive = true,
+                CreatedAt = now,
+                ModifiedAt = now,
+            });
+            await _uow.CommitAsync();
+        }
+
         private static string? NormalizeInstrumentReference(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))

@@ -18,12 +18,18 @@ namespace APICore.Services.Impls
     {
         private readonly IUnitOfWork _uow;
         private readonly ICurrencyService _currencyService;
+        private readonly IPaymentMethodService _paymentMethodService;
         private readonly IStringLocalizer<IOrganizationService> _localizer;
 
-        public OrganizationService(IUnitOfWork uow, ICurrencyService currencyService, IStringLocalizer<IOrganizationService> localizer)
+        public OrganizationService(
+            IUnitOfWork uow,
+            ICurrencyService currencyService,
+            IPaymentMethodService paymentMethodService,
+            IStringLocalizer<IOrganizationService> localizer)
         {
             _uow = uow;
             _currencyService = currencyService;
+            _paymentMethodService = paymentMethodService;
             _localizer = localizer;
         }
 
@@ -46,6 +52,7 @@ namespace APICore.Services.Impls
             await _uow.CommitAsync();
 
             await _currencyService.EnsureBaseCurrencyForOrganizationAsync(organization.Id);
+            await _paymentMethodService.EnsureCashPaymentMethodExistsAsync(organization.Id);
 
             return ToResponse(organization);
         }

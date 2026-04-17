@@ -27,6 +27,7 @@ namespace APICore.API.Utils
 
             var uow = sp.GetRequiredService<IUnitOfWork>();
             var currencyService = sp.GetRequiredService<ICurrencyService>();
+            var paymentMethodService = sp.GetRequiredService<IPaymentMethodService>();
             var dbContext = sp.GetRequiredService<CoreDbContext>();
 
             // Sin usuario HTTP el contexto queda con CurrentOrganizationId = -1; los filtros de tenant
@@ -35,7 +36,7 @@ namespace APICore.API.Utils
             dbContext.IgnoreLocationFilter = true;
             try
             {
-                await SeedLocationsRolesAndPermissionsAsync(uow, currencyService);
+                await SeedLocationsRolesAndPermissionsAsync(uow, currencyService, paymentMethodService);
                 await CreateDefaultUserAsync(uow);
                 await SeedDefaultTagsAsync(uow);
             }
@@ -45,7 +46,10 @@ namespace APICore.API.Utils
             }
         }
 
-        private static async Task SeedLocationsRolesAndPermissionsAsync(IUnitOfWork uow, ICurrencyService currencyService)
+        private static async Task SeedLocationsRolesAndPermissionsAsync(
+            IUnitOfWork uow,
+            ICurrencyService currencyService,
+            IPaymentMethodService paymentMethodService)
         {
             var now = DateTime.UtcNow;
 
@@ -182,7 +186,7 @@ namespace APICore.API.Utils
 
             await currencyService.EnsureBaseCurrencyForOrganizationAsync(defaultOrganization.Id);
 
-            await SeedDefaultPaymentMethodsAsync(uow, defaultOrganization.Id, now);
+            await SeedDefaultPaymentMethodsAsync(uow, paymentMethodService, defaultOrganization.Id, now);
 
             await SeedBusinessCategoriesAsync(uow, now);
 
@@ -363,20 +367,29 @@ namespace APICore.API.Utils
             await uow.CommitAsync();
         }
 
-        private static async Task SeedDefaultPaymentMethodsAsync(IUnitOfWork uow, int organizationId, DateTime now)
+        private static async Task SeedDefaultPaymentMethodsAsync(
+            IUnitOfWork uow,
+            IPaymentMethodService paymentMethodService,
+            int organizationId,
+            DateTime now)
         {
-            var any = await uow.PaymentMethodRepository.FindBy(pm => pm.OrganizationId == organizationId).AnyAsync();
-            if (any)
-                return;
+            await paymentMethodService.EnsureCashPaymentMethodExistsAsync(organizationId);
 
-            var defaults = new[]
+            var optionalDefaults = new[]
             {
-                new { Name = "Efectivo", SortOrder = 0 },
                 new { Name = "Transferencia", SortOrder = 1 },
                 new { Name = "Zelle", SortOrder = 2 },
             };
-            foreach (var d in defaults)
+            foreach (var d in optionalDefaults)
             {
+                var exists = await uow.PaymentMethodRepository
+                    .FindBy(pm => pm.OrganizationId == organizationId
+                                  && pm.Name == d.Name
+                                  && pm.InstrumentReference == null)
+                    .AnyAsync();
+                if (exists)
+                    continue;
+
                 await uow.PaymentMethodRepository.AddAsync(new PaymentMethod
                 {
                     OrganizationId = organizationId,

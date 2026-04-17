@@ -100,7 +100,7 @@ namespace APICore.Tests.Integration.Account
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object, new Mock<IPaymentMethodService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -126,7 +126,7 @@ namespace APICore.Tests.Integration.Account
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object, new Mock<IPaymentMethodService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -148,7 +148,7 @@ namespace APICore.Tests.Integration.Account
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object, new Mock<IPaymentMethodService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -175,7 +175,7 @@ namespace APICore.Tests.Integration.Account
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object, new Mock<IPaymentMethodService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -202,7 +202,7 @@ namespace APICore.Tests.Integration.Account
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object, new Mock<IPaymentMethodService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT
@@ -229,7 +229,7 @@ namespace APICore.Tests.Integration.Account
             };
 
             using var context = new CoreDbContext(ContextOptions);
-            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object);
+            var accountService = new AccountService(new Mock<IConfiguration>().Object, new UnitOfWork(context), context, new Mock<IStringLocalizer<IAccountService>>().Object, new Mock<IDetectionService>().Object, new Mock<ISubscriptionService>().Object, new Mock<ICurrencyService>().Object, new Mock<IPaymentMethodService>().Object);
             var accountController = new AccountController(accountService, new Mock<AutoMapper.IMapper>().Object, new Mock<IEmailService>().Object, new Mock<IWebHostEnvironment>().Object);
 
             // ACT

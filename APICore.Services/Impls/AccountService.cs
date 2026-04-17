@@ -41,13 +41,15 @@ namespace APICore.Services.Impls
         private readonly IDetectionService _detectionService;
         private readonly ISubscriptionService _subscriptionService;
         private readonly ICurrencyService _currencyService;
+        private readonly IPaymentMethodService _paymentMethodService;
 
         public AccountService(IConfiguration configuration, IUnitOfWork uow,
             CoreDbContext context,
             IStringLocalizer<IAccountService> localizer,
             IDetectionService detectionService,
             ISubscriptionService subscriptionService,
-            ICurrencyService currencyService)
+            ICurrencyService currencyService,
+            IPaymentMethodService paymentMethodService)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _uow = uow ?? throw new ArgumentNullException(nameof(uow));
@@ -56,6 +58,7 @@ namespace APICore.Services.Impls
             _detectionService = detectionService ?? throw new ArgumentNullException(nameof(detectionService));
             _subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
             _currencyService = currencyService ?? throw new ArgumentNullException(nameof(currencyService));
+            _paymentMethodService = paymentMethodService ?? throw new ArgumentNullException(nameof(paymentMethodService));
         }
 
        
@@ -479,6 +482,7 @@ namespace APICore.Services.Impls
             await _uow.CommitAsync();
 
             await _currencyService.EnsureBaseCurrencyForOrganizationAsync(organization.Id);
+            await _paymentMethodService.EnsureCashPaymentMethodExistsAsync(organization.Id);
 
             if (string.Equals(plan.Name, PlanNames.Free, StringComparison.OrdinalIgnoreCase))
                 await _subscriptionService.CreateFreeSubscriptionAsync(organization.Id, plan.Id);
