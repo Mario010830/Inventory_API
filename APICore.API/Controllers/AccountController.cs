@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System;
 using System.IO;
 using System.Linq;
@@ -240,14 +241,17 @@ namespace APICore.API.Controllers
         /// <summary>
         /// Forgot password endpoint. The user receive an email with a new password.
         /// </summary>
-        /// <param name="email">User email.</param>
+        /// <param name="email">User email (query string). También se acepta el mismo valor en el cuerpo JSON como <c>{"email":"..."}</c>.</param>
         [HttpPost("forgot-password")]
         [AllowAnonymous]
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        public async Task<IActionResult> ForgotPassword([FromQuery] string email)
+        public async Task<IActionResult> ForgotPassword(
+            [FromQuery] string email,
+            [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ForgotPasswordRequest body = null)
         {
-            var newPass = await _accountService.ForgotPasswordAsync(email);
+            var resolvedEmail = string.IsNullOrWhiteSpace(email) ? body?.Email : email;
+            var newPass = await _accountService.ForgotPasswordAsync(resolvedEmail);
 
             var resource = _env.ContentRootPath
                        + Path.DirectorySeparatorChar.ToString()
@@ -260,7 +264,7 @@ namespace APICore.API.Controllers
 
             var subject = "Password Reset";
 
-            await _emailService.SendEmailResponseAsync(subject, emailBody, email);
+            await _emailService.SendEmailResponseAsync(subject, emailBody, resolvedEmail);
 
             return Ok();
         }

@@ -778,6 +778,7 @@ namespace APICore.Services.Impls
 
         public async Task<string> ForgotPasswordAsync(string email)
         {
+            email = email?.Trim();
             var user = await GetUserByEmailIgnoringFiltersAsync(email);
             if (user == null)
             {
