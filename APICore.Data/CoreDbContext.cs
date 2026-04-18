@@ -53,6 +53,8 @@ namespace APICore.Data
         public DbSet<LoanPayment> LoanPayments { get; set; }
         public DbSet<PaymentMethod> PaymentMethods { get; set; }
         public DbSet<SaleOrderPayment> SaleOrderPayments { get; set; }
+        public DbSet<SaleOrderPaymentDenomination> SaleOrderPaymentDenominations { get; set; }
+        public DbSet<CurrencyDenomination> CurrencyDenominations { get; set; }
         public DbSet<CashOutflow> CashOutflows { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -192,12 +194,55 @@ namespace APICore.Data
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<SaleOrderPayment>()
+                .HasOne(p => p.Currency)
+                .WithMany()
+                .HasForeignKey(p => p.CurrencyId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SaleOrderPayment>()
+                .HasMany(p => p.Denominations)
+                .WithOne(d => d.SaleOrderPayment)
+                .HasForeignKey(d => d.SaleOrderPaymentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SaleOrderPayment>()
                 .Property(p => p.Amount)
                 .HasPrecision(18, 2);
 
             modelBuilder.Entity<SaleOrderPayment>()
+                .Property(p => p.AmountForeign)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<SaleOrderPayment>()
+                .Property(p => p.ExchangeRateSnapshot)
+                .HasPrecision(18, 8);
+
+            modelBuilder.Entity<SaleOrderPayment>()
                 .Property(p => p.Reference)
                 .HasMaxLength(120);
+
+            modelBuilder.Entity<SaleOrderPaymentDenomination>()
+                .Property(d => d.Kind)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<SaleOrderPaymentDenomination>()
+                .Property(d => d.Value)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<CurrencyDenomination>()
+                .HasOne(d => d.Currency)
+                .WithMany(c => c.Denominations)
+                .HasForeignKey(d => d.CurrencyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CurrencyDenomination>()
+                .Property(d => d.Value)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<CurrencyDenomination>()
+                .HasIndex(d => new { d.CurrencyId, d.Value })
+                .IsUnique();
 
             // SaleOrderItem
             modelBuilder.Entity<SaleOrderItem>()
@@ -478,6 +523,15 @@ namespace APICore.Data
                 IgnoreLocationFilter
                 || (CurrentLocationId > 0 && p.SaleOrder != null && p.SaleOrder.LocationId == CurrentLocationId)
                 || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && p.SaleOrder != null && p.SaleOrder.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<SaleOrderPaymentDenomination>().HasQueryFilter(d =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && d.SaleOrderPayment != null && d.SaleOrderPayment.SaleOrder != null && d.SaleOrderPayment.SaleOrder.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && d.SaleOrderPayment != null && d.SaleOrderPayment.SaleOrder != null && d.SaleOrderPayment.SaleOrder.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<CurrencyDenomination>().HasQueryFilter(d =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && d.Currency != null && d.Currency.OrganizationId == CurrentOrganizationId));
 
             modelBuilder.Entity<SaleReturn>().HasQueryFilter(r =>
                 IgnoreLocationFilter

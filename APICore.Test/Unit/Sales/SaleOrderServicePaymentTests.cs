@@ -111,6 +111,56 @@ namespace APICore.Tests.Unit.Sales
             return (ctx, 1, 1, 1, 2);
         }
 
+        /// <summary>CUP (90) y moneda FX (91) con tasa 2 CUP por 1 FX; denominaciones 20 y 10.</summary>
+        private static (int cupId, int fxId) SeedFxCurrency(CoreDbContext ctx)
+        {
+            var now = DateTime.UtcNow;
+            ctx.Currencies.Add(new Currency
+            {
+                Id = 90,
+                OrganizationId = 1,
+                Code = "CUP",
+                Name = "CUP",
+                ExchangeRate = 1m,
+                IsActive = true,
+                IsBase = true,
+                CreatedAt = now,
+                ModifiedAt = now,
+            });
+            ctx.Currencies.Add(new Currency
+            {
+                Id = 91,
+                OrganizationId = 1,
+                Code = "FX",
+                Name = "FX",
+                ExchangeRate = 2m,
+                IsActive = true,
+                IsBase = false,
+                CreatedAt = now,
+                ModifiedAt = now,
+            });
+            ctx.CurrencyDenominations.Add(new CurrencyDenomination
+            {
+                CurrencyId = 91,
+                Value = 20m,
+                SortOrder = 0,
+                IsActive = true,
+                CreatedAt = now,
+                ModifiedAt = now,
+            });
+            ctx.CurrencyDenominations.Add(new CurrencyDenomination
+            {
+                CurrencyId = 91,
+                Value = 10m,
+                SortOrder = 1,
+                IsActive = true,
+                CreatedAt = now,
+                ModifiedAt = now,
+            });
+            ctx.SaveChanges();
+            return (90, 91);
+        }
+
         private static SaleOrderService CreateSut(CoreDbContext ctx)
         {
             ctx.CurrentOrganizationId = -1;
@@ -218,6 +268,113 @@ namespace APICore.Tests.Unit.Sales
 
             var confirmed = await sut.ConfirmSaleOrder(order.Id, userId: 1);
             Assert.Equal(SaleOrderStatus.confirmed, confirmed.Status);
+        }
+
+        [Fact]
+        public async Task CreateSaleOrder_WithForeignCurrency_PersistsSnapshot()
+        {
+            await using var ctx = CreateContext();
+            var (_, locId, prodId, pmCash, _) = SeedSaleScenario(ctx);
+            var (_, fxId) = SeedFxCurrency(ctx);
+            var sut = CreateSut(ctx);
+
+            var order = await sut.CreateSaleOrder(new CreateSaleOrderRequest
+            {
+                LocationId = locId,
+                Items = new List<CreateSaleOrderItemRequest>
+                {
+                    new() { ProductId = prodId, Quantity = 1m },
+                },
+                Payments = new List<CreateSaleOrderPaymentRequest>
+                {
+                    new()
+                    {
+                        PaymentMethodId = pmCash,
+                        Amount = 100m,
+                        CurrencyId = fxId,
+                        AmountForeign = 50m,
+                        ExchangeRateSnapshot = 2m,
+                    },
+                },
+            }, userId: 0);
+
+            var pay = Assert.Single(order.Payments);
+            Assert.Equal(fxId, pay.CurrencyId);
+            Assert.Equal(50m, pay.AmountForeign);
+            Assert.Equal(2m, pay.ExchangeRateSnapshot);
+            Assert.Equal(100m, pay.Amount);
+        }
+
+        [Fact]
+        public async Task CreateSaleOrder_WithTenderAndChange_PersistsDenominations()
+        {
+            await using var ctx = CreateContext();
+            var (_, locId, prodId, pmCash, _) = SeedSaleScenario(ctx);
+            var (_, fxId) = SeedFxCurrency(ctx);
+            var sut = CreateSut(ctx);
+
+            var order = await sut.CreateSaleOrder(new CreateSaleOrderRequest
+            {
+                LocationId = locId,
+                Items = new List<CreateSaleOrderItemRequest>
+                {
+                    new() { ProductId = prodId, Quantity = 1m },
+                },
+                Payments = new List<CreateSaleOrderPaymentRequest>
+                {
+                    new()
+                    {
+                        PaymentMethodId = pmCash,
+                        Amount = 100m,
+                        CurrencyId = fxId,
+                        AmountForeign = 50m,
+                        ExchangeRateSnapshot = 2m,
+                        TenderDenominations = new List<SaleOrderPaymentDenominationLineRequest>
+                        {
+                            new() { Value = 20m, Quantity = 3 },
+                            new() { Value = 10m, Quantity = 2 },
+                        },
+                        ChangeDenominations = new List<SaleOrderPaymentDenominationLineRequest>
+                        {
+                            new() { Value = 10m, Quantity = 3 },
+                        },
+                    },
+                },
+            }, userId: 0);
+
+            var pay = Assert.Single(order.Payments);
+            Assert.Equal(3, pay.Denominations.Count);
+            Assert.Equal(8, pay.Denominations.Sum(d => d.Quantity));
+        }
+
+        [Fact]
+        public async Task CreateSaleOrder_WhenExchangeRateMismatch_Throws()
+        {
+            await using var ctx = CreateContext();
+            var (_, locId, prodId, pmCash, _) = SeedSaleScenario(ctx);
+            var (_, fxId) = SeedFxCurrency(ctx);
+            var sut = CreateSut(ctx);
+
+            await Assert.ThrowsAsync<BaseBadRequestException>(() =>
+                sut.CreateSaleOrder(new CreateSaleOrderRequest
+                {
+                    LocationId = locId,
+                    Items = new List<CreateSaleOrderItemRequest>
+                    {
+                        new() { ProductId = prodId, Quantity = 1m },
+                    },
+                    Payments = new List<CreateSaleOrderPaymentRequest>
+                    {
+                        new()
+                        {
+                            PaymentMethodId = pmCash,
+                            Amount = 100m,
+                            CurrencyId = fxId,
+                            AmountForeign = 50m,
+                            ExchangeRateSnapshot = 3m,
+                        },
+                    },
+                }, userId: 0));
         }
     }
 }

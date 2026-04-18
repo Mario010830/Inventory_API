@@ -31,8 +31,23 @@ namespace APICore.Common.DTO.Response
         public int PaymentMethodId { get; set; }
         public string? PaymentMethodName { get; set; }
         public string? PaymentMethodInstrumentReference { get; set; }
+
+        /// <summary>Aporte en CUP.</summary>
         public decimal Amount { get; set; }
+
         public string? Reference { get; set; }
+        public int? CurrencyId { get; set; }
+        public string? CurrencyCode { get; set; }
+        public decimal? AmountForeign { get; set; }
+        public decimal? ExchangeRateSnapshot { get; set; }
+        public List<SaleOrderPaymentDenominationResponse> Denominations { get; set; } = new();
+    }
+
+    public class SaleOrderPaymentDenominationResponse
+    {
+        public string Kind { get; set; } = null!;
+        public decimal Value { get; set; }
+        public int Quantity { get; set; }
     }
 
     public class SaleOrderItemResponse

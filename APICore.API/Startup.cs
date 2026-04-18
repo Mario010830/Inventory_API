@@ -105,6 +105,7 @@ namespace APICore.API
             services.AddTransient<IPlanService, PlanService>();
             services.AddTransient<ISubscriptionQuotaService, SubscriptionQuotaService>();
             services.AddTransient<ICurrencyService, CurrencyService>();
+            services.AddTransient<ICurrencyDenominationService, CurrencyDenominationService>();
             services.AddTransient<IBusinessCategoryService, BusinessCategoryService>();
             services.AddTransient<IReportsService, ReportsService>();
             services.AddTransient<IMetricsService, MetricsService>();

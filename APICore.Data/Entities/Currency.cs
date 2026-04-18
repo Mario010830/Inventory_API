@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace APICore.Data.Entities
 {
     /// <summary>
@@ -15,5 +17,7 @@ namespace APICore.Data.Entities
         public bool IsActive { get; set; } = true;
         /// <summary>Solo CUP por organización. No editable desde la API.</summary>
         public bool IsBase { get; set; }
+
+        public ICollection<CurrencyDenomination> Denominations { get; set; } = new List<CurrencyDenomination>();
     }
 }

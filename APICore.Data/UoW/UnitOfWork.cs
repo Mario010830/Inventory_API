@@ -41,6 +41,7 @@ namespace APICore.Data.UoW
             SubscriptionRepository ??= new GenericRepository<Subscription>(_context);
             SubscriptionRequestRepository ??= new GenericRepository<SubscriptionRequest>(_context);
             CurrencyRepository ??= new GenericRepository<Currency>(_context);
+            CurrencyDenominationRepository ??= new GenericRepository<CurrencyDenomination>(_context);
             BusinessCategoryRepository ??= new GenericRepository<BusinessCategory>(_context);
             ProductImageRepository ??= new GenericRepository<ProductImage>(_context);
             ProductTagRepository ??= new GenericRepository<ProductTag>(_context);
@@ -82,6 +83,7 @@ namespace APICore.Data.UoW
         public IGenericRepository<Subscription> SubscriptionRepository { get; set; }
         public IGenericRepository<SubscriptionRequest> SubscriptionRequestRepository { get; set; }
         public IGenericRepository<Currency> CurrencyRepository { get; set; }
+        public IGenericRepository<CurrencyDenomination> CurrencyDenominationRepository { get; set; }
         public IGenericRepository<BusinessCategory> BusinessCategoryRepository { get; set; }
         public IGenericRepository<ProductImage> ProductImageRepository { get; set; }
         public IGenericRepository<ProductTag> ProductTagRepository { get; set; }

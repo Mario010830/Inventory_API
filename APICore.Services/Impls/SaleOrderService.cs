@@ -19,6 +19,8 @@ namespace APICore.Services.Impls
     public class SaleOrderService : ISaleOrderService
     {
         private const decimal PaymentTotalTolerance = 0.01m;
+        private const decimal ExchangeRateEqualityTolerance = 0.000001m;
+        private const decimal CashDenominationTotalTolerance = 0.02m;
 
         private readonly IUnitOfWork _uow;
         private readonly CoreDbContext _context;
@@ -130,14 +132,7 @@ namespace APICore.Services.Impls
             {
                 await ValidatePaymentLinesAsync(orgId, order.Total, request.Payments, priceDecimals);
                 foreach (var pay in request.Payments)
-                {
-                    order.Payments.Add(new SaleOrderPayment
-                    {
-                        PaymentMethodId = pay.PaymentMethodId,
-                        Amount = Math.Round(pay.Amount, priceDecimals),
-                        Reference = NormalizePaymentReference(pay.Reference),
-                    });
-                }
+                    order.Payments.Add(CreatePaymentFromRequest(pay, priceDecimals));
             }
 
             await _uow.SaleOrderRepository.AddAsync(order);
@@ -350,14 +345,7 @@ namespace APICore.Services.Impls
                 {
                     await ValidatePaymentLinesAsync(order.OrganizationId, order.Total, request.Payments, priceDecimals);
                     foreach (var pay in request.Payments)
-                    {
-                        order.Payments.Add(new SaleOrderPayment
-                        {
-                            PaymentMethodId = pay.PaymentMethodId,
-                            Amount = Math.Round(pay.Amount, priceDecimals),
-                            Reference = NormalizePaymentReference(pay.Reference),
-                        });
-                    }
+                        order.Payments.Add(CreatePaymentFromRequest(pay, priceDecimals));
                 }
             }
 
@@ -380,6 +368,8 @@ namespace APICore.Services.Impls
             IQueryable<SaleOrder> query = _context.SaleOrders
                 .Include(s => s.Items).ThenInclude(i => i.Product)
                 .Include(s => s.Payments).ThenInclude(p => p.PaymentMethod)
+                .Include(s => s.Payments).ThenInclude(p => p.Currency)
+                .Include(s => s.Payments).ThenInclude(p => p.Denominations)
                 .Include(s => s.Contact)
                 .Include(s => s.Location);
 
@@ -429,6 +419,10 @@ namespace APICore.Services.Impls
                     .ThenInclude(i => i.Product)
                 .Include(s => s.Payments)
                     .ThenInclude(p => p.PaymentMethod)
+                .Include(s => s.Payments)
+                    .ThenInclude(p => p.Currency)
+                .Include(s => s.Payments)
+                    .ThenInclude(p => p.Denominations)
                 .Include(s => s.Contact)
                 .Include(s => s.Location)
                 .FirstOrDefaultAsync(s => s.Id == id);
@@ -464,9 +458,167 @@ namespace APICore.Services.Impls
                     throw new PaymentMethodInactiveBadRequestException(_localizer);
             }
 
+            var currencyIds = lines
+                .Where(l => l.CurrencyId is > 0)
+                .Select(l => l.CurrencyId!.Value)
+                .Distinct()
+                .ToList();
+
+            List<Currency> currencies = new();
+            if (currencyIds.Count > 0)
+            {
+                currencies = await _context.Currencies.IgnoreQueryFilters()
+                    .Where(c => currencyIds.Contains(c.Id) && c.OrganizationId == organizationId)
+                    .ToListAsync();
+                if (currencies.Count != currencyIds.Count)
+                    throw new CurrencyNotFoundException();
+            }
+
+            foreach (var pay in lines)
+                await ValidateSinglePaymentLineAsync(pay, currencies, priceDecimals);
+
             var sum = lines.Sum(l => Math.Round(l.Amount, priceDecimals));
             if (!PaymentTotalsMatch(orderTotal, sum))
                 throw new SaleOrderPaymentsMismatchTotalBadRequestException(_localizer);
+        }
+
+        private async Task ValidateSinglePaymentLineAsync(CreateSaleOrderPaymentRequest pay, List<Currency> currencies, int priceDecimals)
+        {
+            if (pay.CurrencyId is null or <= 0)
+            {
+                if (pay.AmountForeign.HasValue || pay.ExchangeRateSnapshot.HasValue)
+                    throw new BaseBadRequestException { CustomMessage = "No envíe amountForeign ni exchangeRateSnapshot si no indica currencyId." };
+                if (HasDenominationLines(pay))
+                    throw new BaseBadRequestException { CustomMessage = "Las denominaciones requieren currencyId y amountForeign." };
+                return;
+            }
+
+            var currency = currencies.FirstOrDefault(c => c.Id == pay.CurrencyId!.Value);
+            if (currency == null)
+                throw new CurrencyNotFoundException();
+
+            if (!currency.IsActive)
+                throw new BaseBadRequestException { CustomMessage = "La moneda indicada no está activa." };
+
+            if (!pay.AmountForeign.HasValue || pay.AmountForeign.Value <= 0)
+                throw new BaseBadRequestException { CustomMessage = "amountForeign es obligatorio cuando se indica currencyId." };
+
+            if (!pay.ExchangeRateSnapshot.HasValue)
+                throw new BaseBadRequestException { CustomMessage = "exchangeRateSnapshot es obligatorio cuando se indica currencyId." };
+
+            var dbRate = currency.IsBase ? 1m : currency.ExchangeRate;
+            if (Math.Abs(pay.ExchangeRateSnapshot.Value - dbRate) > ExchangeRateEqualityTolerance)
+                throw new BaseBadRequestException { CustomMessage = "La tasa de cambio no coincide con la configuración actual." };
+
+            pay.ExchangeRateSnapshot = dbRate;
+
+            var foreignRounded = Math.Round(pay.AmountForeign.Value, 4, MidpointRounding.AwayFromZero);
+            pay.AmountForeign = foreignRounded;
+
+            var expectedBase = Math.Round(foreignRounded * dbRate, priceDecimals);
+            if (!PaymentTotalsMatch(pay.Amount, expectedBase))
+                throw new BaseBadRequestException { CustomMessage = "El importe en CUP (amount) no coincide con amountForeign y la tasa vigente." };
+
+            if (HasDenominationLines(pay))
+                await ValidateCashDenominationsAsync(pay.CurrencyId.Value, pay, foreignRounded);
+        }
+
+        private static bool HasDenominationLines(CreateSaleOrderPaymentRequest pay)
+        {
+            static bool AnyQty(IEnumerable<SaleOrderPaymentDenominationLineRequest>? xs) =>
+                xs != null && xs.Any(d => d.Quantity > 0);
+
+            return AnyQty(pay.TenderDenominations) || AnyQty(pay.ChangeDenominations);
+        }
+
+        private async Task ValidateCashDenominationsAsync(int currencyId, CreateSaleOrderPaymentRequest pay, decimal amountForeignRounded)
+        {
+            decimal Sum(IEnumerable<SaleOrderPaymentDenominationLineRequest>? xs)
+            {
+                if (xs == null)
+                    return 0m;
+                decimal s = 0m;
+                foreach (var d in xs)
+                {
+                    if (d.Quantity < 0)
+                        throw new BaseBadRequestException { CustomMessage = "La cantidad de billetes no puede ser negativa." };
+                    if (d.Quantity == 0)
+                        continue;
+                    if (d.Value <= 0)
+                        throw new BaseBadRequestException { CustomMessage = "Cada denominación debe tener un valor mayor que cero." };
+                    var v = Math.Round(d.Value, 4, MidpointRounding.AwayFromZero);
+                    s += v * d.Quantity;
+                }
+
+                return Math.Round(s, 4, MidpointRounding.AwayFromZero);
+            }
+
+            var sumTender = Sum(pay.TenderDenominations);
+            var sumChange = Sum(pay.ChangeDenominations);
+            var netFromBills = Math.Round(sumTender - sumChange, 4, MidpointRounding.AwayFromZero);
+            if (Math.Abs(netFromBills - amountForeignRounded) > CashDenominationTotalTolerance)
+                throw new BaseBadRequestException { CustomMessage = "La suma de entregado menos vuelto no coincide con amountForeign." };
+
+            var valuesNeeded = new HashSet<decimal>();
+            void Collect(IEnumerable<SaleOrderPaymentDenominationLineRequest>? xs)
+            {
+                if (xs == null) return;
+                foreach (var d in xs.Where(x => x.Quantity > 0))
+                    valuesNeeded.Add(Math.Round(d.Value, 4, MidpointRounding.AwayFromZero));
+            }
+
+            Collect(pay.TenderDenominations);
+            Collect(pay.ChangeDenominations);
+            if (valuesNeeded.Count == 0)
+                return;
+
+            var allowed = await _context.CurrencyDenominations.IgnoreQueryFilters()
+                .Where(cd => cd.CurrencyId == currencyId && cd.IsActive && valuesNeeded.Contains(cd.Value))
+                .Select(cd => cd.Value)
+                .ToListAsync();
+
+            foreach (var v in valuesNeeded)
+            {
+                if (!allowed.Any(a => a == v))
+                    throw new BaseBadRequestException { CustomMessage = $"El valor facial {v} no está configurado como denominación activa para esta moneda." };
+            }
+        }
+
+        private static SaleOrderPayment CreatePaymentFromRequest(CreateSaleOrderPaymentRequest pay, int priceDecimals)
+        {
+            var entity = new SaleOrderPayment
+            {
+                PaymentMethodId = pay.PaymentMethodId,
+                Amount = Math.Round(pay.Amount, priceDecimals),
+                Reference = NormalizePaymentReference(pay.Reference),
+                CurrencyId = pay.CurrencyId is > 0 ? pay.CurrencyId : null,
+                AmountForeign = pay.CurrencyId is > 0 ? pay.AmountForeign : null,
+                ExchangeRateSnapshot = pay.CurrencyId is > 0 ? pay.ExchangeRateSnapshot : null,
+            };
+
+            AddDenominationEntities(entity, pay.TenderDenominations, SaleOrderPaymentDenominationKind.tender);
+            AddDenominationEntities(entity, pay.ChangeDenominations, SaleOrderPaymentDenominationKind.change);
+            return entity;
+        }
+
+        private static void AddDenominationEntities(
+            SaleOrderPayment entity,
+            List<SaleOrderPaymentDenominationLineRequest>? list,
+            SaleOrderPaymentDenominationKind kind)
+        {
+            if (list == null)
+                return;
+            foreach (var row in list)
+            {
+                if (row.Quantity <= 0)
+                    continue;
+                entity.Denominations.Add(new SaleOrderPaymentDenomination
+                {
+                    Kind = kind,
+                    Value = Math.Round(row.Value, 4, MidpointRounding.AwayFromZero),
+                    Quantity = row.Quantity,
+                });
+            }
         }
 
         private async Task<string> GenerateFolioAsync(int orgId)
