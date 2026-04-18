@@ -149,8 +149,8 @@ namespace APICore.Tests.Integration.Account
             if (taskResult != null) Assert.Equal(404, taskResult.HttpCode);
         }
 
-        [Fact(DisplayName = "Wrong Password Should Return Unauthorized Exception")]
-        public void WrongPasswordShouldReturnUnauthorizedException()
+        [Fact(DisplayName = "Wrong Password Should Return Invalid Login Credentials Exception")]
+        public void WrongPasswordShouldReturnInvalidLoginCredentialsException()
         {
             // ARRANGE
             var fakeLoginRequest = new LoginRequest
@@ -173,10 +173,14 @@ namespace APICore.Tests.Integration.Account
 
             // ACT
             var aggregateException = accountController.Login(fakeLoginRequest).Exception;
-            var taskResult = (BaseUnauthorizedException)aggregateException?.InnerException;
+            var taskResult = aggregateException?.InnerException as BaseUnauthorizedException;
 
             // ASSERT
-            if (taskResult != null) Assert.Equal(401, taskResult.HttpCode);
+            if (taskResult != null)
+            {
+                Assert.Equal(401, taskResult.HttpCode);
+                Assert.Equal(401003, taskResult.CustomCode);
+            }
         }
     }
 }

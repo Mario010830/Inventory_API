@@ -92,7 +92,7 @@ namespace APICore.Services.Impls
 
             if (user.Password != hashedPass)
             {
-                throw new UnauthorizedException(_localizer);
+                throw new InvalidLoginCredentialsException(_localizer);
             }
             if (user.Status != StatusEnum.ACTIVE)
             {

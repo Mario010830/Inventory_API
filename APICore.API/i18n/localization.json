@@ -169,6 +169,13 @@
       "es-ES": "Esta acción requiere contexto de organización. Asocie su usuario a una organización o use una cuenta que pertenezca a una."
     }
   },
+  {
+    "Key": "401003",
+    "LocalizedValue": {
+      "en-US": "Incorrect email or password.",
+      "es-ES": "Correo o contraseña incorrectos."
+    }
+  },
   //Forbidden
   {
     "Key": "403",
