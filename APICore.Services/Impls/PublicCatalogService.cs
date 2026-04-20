@@ -41,7 +41,7 @@ namespace APICore.Services.Impls
 
             var inventoryCounts = await _context.Inventories
                 .IgnoreQueryFilters()
-                .Where(i => locationIds.Contains(i.LocationId))
+                .Where(i => locationIds.Contains(i.LocationId) && i.CurrentStock > 0)
                 .GroupBy(i => i.LocationId)
                 .Select(g => new { LocationId = g.Key, Count = g.Select(i => i.ProductId).Distinct().Count() })
                 .ToDictionaryAsync(x => x.LocationId, x => x.Count);
@@ -68,7 +68,9 @@ namespace APICore.Services.Impls
             // Productos con promo activa por location (via inventario)
             var promoByLocation = await _context.Inventories
                 .IgnoreQueryFilters()
-                .Where(i => locationIds.Contains(i.LocationId) && activePromoSet.Contains(i.ProductId))
+                .Where(i => locationIds.Contains(i.LocationId)
+                    && i.CurrentStock > 0
+                    && activePromoSet.Contains(i.ProductId))
                 .Select(i => i.LocationId)
                 .Distinct()
                 .ToListAsync();
@@ -170,10 +172,10 @@ namespace APICore.Services.Impls
             var businessHours = DeserializeBusinessHours(location.BusinessHoursJson);
             var isOpenNow = CalculateIsOpenNow(businessHours, DateTime.Now);
 
-            // Inventario por ubicación: se usa para inventariables y para exponer stock.
+            // Inventario por ubicación: inventariables solo entran al catálogo con stock > 0.
             var productIdsAtLocation = await _context.Inventories
                 .IgnoreQueryFilters()
-                .Where(i => i.LocationId == locationId)
+                .Where(i => i.LocationId == locationId && i.CurrentStock > 0)
                 .Select(i => i.ProductId)
                 .Distinct()
                 .ToListAsync();
@@ -191,7 +193,8 @@ namespace APICore.Services.Impls
                 .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag)
                 .Where(p => p.OrganizationId == location.OrganizationId
-                    && p.IsForSale)
+                    && p.IsForSale
+                    && !p.IsDeleted)
                 .ToListAsync();
 
             var promotions = await GetActivePromotionsMapAsync(products.Select(p => p.Id).ToList(), location.OrganizationId);
@@ -297,7 +300,6 @@ namespace APICore.Services.Impls
                 .ToListAsync();
             var elaboradoOfferSet = offerPairs.Select(o => (o.ProductId, o.LocationId)).ToHashSet();
 
-            var productIdsInCatalog = inventories.Select(i => i.ProductId).Distinct().ToList();
             if (locationInfos.Count == 0)
             {
                 return new PublicCatalogPaginatedResponse
@@ -316,7 +318,7 @@ namespace APICore.Services.Impls
                 .Include(p => p.ProductImages)
                 .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag)
-                .Where(p => p.IsForSale)
+                .Where(p => p.IsForSale && !p.IsDeleted)
                 .ToDictionaryAsync(p => p.Id, p => p);
 
             var promotions = await GetActivePromotionsMapByOrganizationAsync(products.Keys.ToList());
@@ -326,7 +328,11 @@ namespace APICore.Services.Impls
             foreach (var li in locationInfos)
             {
                 var loc = li.Location;
-                var productIdsAtLoc = inventories.Where(i => i.LocationId == loc.Id).Select(i => i.ProductId).Distinct().ToList();
+                var productIdsAtLoc = inventories
+                    .Where(i => i.LocationId == loc.Id && i.CurrentStock > 0)
+                    .Select(i => i.ProductId)
+                    .Distinct()
+                    .ToList();
 
                 foreach (var productId in productIdsAtLoc)
                 {
@@ -555,7 +561,7 @@ namespace APICore.Services.Impls
         {
             var tagIds = await _context.Products
                 .IgnoreQueryFilters()
-                .Where(p => p.IsForSale)
+                .Where(p => p.IsForSale && !p.IsDeleted)
                 .SelectMany(p => p.ProductTags)
                 .Select(pt => pt.TagId)
                 .Distinct()

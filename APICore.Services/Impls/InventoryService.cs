@@ -28,7 +28,7 @@ namespace APICore.Services.Impls
 
         public async Task<Inventory> CreateInventory(CreateInventoryRequest request)
         {
-            var productExists = await _uow.ProductRepository.FirstOrDefaultAsync(p => p.Id == request.ProductId);
+            var productExists = await _uow.ProductRepository.FirstOrDefaultAsync(p => p.Id == request.ProductId && !p.IsDeleted);
             if (productExists == null)
             {
                 throw new ProductNotFoundException(_localizer);
@@ -70,7 +70,8 @@ namespace APICore.Services.Impls
 
         public async Task<PaginatedList<Inventory>> GetAllInventories(int? page, int? perPage, string sortOrder = null)
         {
-            var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product, i => i.Location);
+            var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product, i => i.Location)
+                .Where(i => i.Product != null && !i.Product.IsDeleted);
             var pageIndex = page ?? 1;
             var perPageIndex = perPage ?? 10;
             return await PaginatedList<Inventory>.CreateAsync(inventories, pageIndex, perPageIndex);
@@ -97,7 +98,7 @@ namespace APICore.Services.Impls
 
             if (request.ProductId.HasValue)
             {
-                var productExists = await _uow.ProductRepository.FirstOrDefaultAsync(p => p.Id == request.ProductId.Value);
+                var productExists = await _uow.ProductRepository.FirstOrDefaultAsync(p => p.Id == request.ProductId.Value && !p.IsDeleted);
                 if (productExists == null)
                 {
                     throw new ProductNotFoundException(_localizer);
@@ -138,7 +139,7 @@ namespace APICore.Services.Impls
 
             var productIds = aggregated.Select(a => a.ProductId).Distinct().ToList();
             var products = await _uow.ProductRepository.GetAll()
-                .Where(p => productIds.Contains(p.Id))
+                .Where(p => productIds.Contains(p.Id) && !p.IsDeleted)
                 .Select(p => new { p.Id, p.Name })
                 .ToListAsync();
             var productDict = products.ToDictionary(p => p.Id, p => p.Name ?? string.Empty);

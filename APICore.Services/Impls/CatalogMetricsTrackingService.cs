@@ -212,7 +212,7 @@ namespace APICore.Services.Impls
         {
             var ok = await _context.Products
                 .IgnoreQueryFilters()
-                .AnyAsync(p => p.Id == productId && p.OrganizationId == organizationId, cancellationToken);
+                .AnyAsync(p => p.Id == productId && p.OrganizationId == organizationId && !p.IsDeleted, cancellationToken);
             if (!ok)
             {
                 throw new BaseBadRequestException

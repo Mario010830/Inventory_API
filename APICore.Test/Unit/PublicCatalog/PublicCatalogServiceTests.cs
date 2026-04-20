@@ -154,7 +154,7 @@ namespace APICore.Tests.Unit.PublicCatalog
 
             var result = (await svc.GetLocationsAsync()).ToList();
 
-            Assert.Equal(3, result.First(l => l.Id == 1).ProductCount); // 3 inventories
+            Assert.Equal(2, result.First(l => l.Id == 1).ProductCount); // inventariables con stock > 0
             Assert.Equal(1, result.First(l => l.Id == 2).ProductCount); // 1 inventory
             Assert.Equal(0, result.First(l => l.Id == 3).ProductCount); // no inventory
         }
@@ -187,8 +187,8 @@ namespace APICore.Tests.Unit.PublicCatalog
 
             var result = (await svc.GetLocationsAsync(sortBy: "productCount")).ToList();
 
-            Assert.Equal(1, result[0].Id); // 3 products
-            Assert.Equal(2, result[1].Id); // 1 product
+            Assert.Equal(1, result[0].Id); // 2 productos con stock en inventario
+            Assert.Equal(2, result[1].Id); // 1 producto
             Assert.Equal(3, result[2].Id); // 0 products
         }
 
@@ -275,6 +275,32 @@ namespace APICore.Tests.Unit.PublicCatalog
             var result = (await svc.GetLocationsAsync(lat: 22.40, lng: -80.05, radiusKm: 1000)).ToList();
 
             Assert.DoesNotContain(result, l => l.Name == "Tienda C");
+        }
+
+        [Fact]
+        public async Task GetCatalogByLocation_Excludes_Inventariable_With_ZeroStock()
+        {
+            using var ctx = CreateContext();
+            SeedBase(ctx);
+            var svc = new PublicCatalogService(ctx);
+
+            var items = (await svc.GetCatalogByLocationAsync(1)).ToList();
+
+            Assert.Contains(items, i => i.Id == 1);
+            Assert.Contains(items, i => i.Id == 2);
+            Assert.DoesNotContain(items, i => i.Id == 3);
+        }
+
+        [Fact]
+        public async Task GetCatalogAll_Excludes_Inventariable_With_ZeroStock_By_Default()
+        {
+            using var ctx = CreateContext();
+            SeedBase(ctx);
+            var svc = new PublicCatalogService(ctx);
+
+            var result = await svc.GetCatalogAllAsync(1, 100);
+
+            Assert.DoesNotContain(result.Items, i => i.Id == 3 && i.LocationId == 1);
         }
 
         // =====================================================================

@@ -61,7 +61,7 @@ namespace APICore.Services.Impls
                 throw new ProductCategoryNotFoundException(_localizer);
             }
 
-            var productsCount = await _uow.ProductRepository.FindAllAsync(p => p.CategoryId == id);
+            var productsCount = await _uow.ProductRepository.FindAllAsync(p => p.CategoryId == id && !p.IsDeleted);
             if (productsCount != null && productsCount.Count > 0)
             {
                 throw new CategoryHasProductsBadRequestException(_localizer);

@@ -55,7 +55,7 @@ namespace APICore.Services.Impls
                 categoryId = request.CategoryId.Value;
             }
 
-            var codeExists = await _uow.ProductRepository.FindAllAsync(p => p.Code == request.Code && p.OrganizationId == orgId);
+            var codeExists = await _uow.ProductRepository.FindAllAsync(p => p.Code == request.Code && p.OrganizationId == orgId && !p.IsDeleted);
             if (codeExists != null && codeExists.Count > 0)
             {
                 throw new ProductCodeInUseBadRequestException(_localizer);
@@ -105,39 +105,28 @@ namespace APICore.Services.Impls
         public async Task DeleteProduct(int id)
         {
             var product = await _context.Products
-                .Include(p => p.ProductImages)
+                .Include(p => p.LocationOffers)
                 .FirstOrDefaultAsync(p => p.Id == id);
             if (product == null)
             {
                 throw new ProductNotFoundException(_localizer);
             }
 
-            foreach (var pi in product.ProductImages)
-            {
-                try
-                {
-                    await _storageService.DeleteProductImageAsync(pi.ImageUrl);
-                }
-                catch
-                {
-                    // Si falla el borrado en almacenamiento, continuamos con el borrado en BD
-                }
-            }
+            if (product.IsDeleted)
+                return;
 
-            // Eliminar imagen única legada si existe
-            if (!string.IsNullOrWhiteSpace(product.ImagenUrl))
-            {
-                try
-                {
-                    await _storageService.DeleteProductImageAsync(product.ImagenUrl);
-                }
-                catch
-                {
-                    // Si falla el borrado en S3, continuamos con el borrado del producto en BD
-                }
-            }
+            if (product.LocationOffers != null && product.LocationOffers.Count > 0)
+                _context.ProductLocationOffers.RemoveRange(product.LocationOffers);
 
-            _uow.ProductRepository.Delete(product);
+            await _context.Promotions
+                .Where(pr => pr.ProductId == id)
+                .ExecuteUpdateAsync(pr => pr.SetProperty(p => p.IsActive, false));
+
+            product.IsDeleted = true;
+            product.IsForSale = false;
+            product.IsAvailable = false;
+            product.ModifiedAt = DateTime.UtcNow;
+
             await _uow.CommitAsync();
         }
 
@@ -148,7 +137,8 @@ namespace APICore.Services.Impls
                 .Include(p => p.ProductImages)
                 .Include(p => p.LocationOffers)
                 .Include(p => p.ProductTags)
-                .ThenInclude(pt => pt.Tag);
+                .ThenInclude(pt => pt.Tag)
+                .Where(p => !p.IsDeleted);
             if (onlyForSale == true)
                 query = query.Where(p => p.IsForSale);
             var pageIndex = page ?? 1;
@@ -164,7 +154,7 @@ namespace APICore.Services.Impls
                 .Include(p => p.LocationOffers)
                 .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag)
-                .Where(p => p.IsForSale);
+                .Where(p => p.IsForSale && !p.IsDeleted);
             return await PaginatedList<Product>.CreateAsync(query, page ?? 1, perPage ?? 50);
         }
 
@@ -176,7 +166,7 @@ namespace APICore.Services.Impls
                 .Include(p => p.LocationOffers)
                 .Include(p => p.ProductTags)
                 .ThenInclude(pt => pt.Tag)
-                .FirstOrDefaultAsync(p => p.Id == id);
+                .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
             if (product == null)
             {
                 throw new ProductNotFoundException(_localizer);
@@ -191,6 +181,9 @@ namespace APICore.Services.Impls
             {
                 throw new ProductNotFoundException(_localizer);
             }
+
+            if (oldProduct.IsDeleted)
+                throw new ProductNotFoundException(_localizer);
 
             int? resolvedCategoryId = oldProduct.CategoryId;
             if (request.CategoryId != null)
@@ -214,7 +207,7 @@ namespace APICore.Services.Impls
             if (request.Code != null)
             {
                 var orgId = _context.CurrentOrganizationId;
-                var codeExists = await _uow.ProductRepository.FindAllAsync(p => p.Code == request.Code && p.Id != id && p.OrganizationId == orgId);
+                var codeExists = await _uow.ProductRepository.FindAllAsync(p => p.Code == request.Code && p.Id != id && p.OrganizationId == orgId && !p.IsDeleted);
                 if (codeExists != null && codeExists.Count > 0)
                 {
                     throw new ProductCodeInUseBadRequestException(_localizer);
@@ -240,6 +233,7 @@ namespace APICore.Services.Impls
                 ImagenUrl = request.ImagenUrl ?? oldProduct.ImagenUrl,
                 IsAvailable = request.IsAvailable ?? oldProduct.IsAvailable,
                 IsForSale = request.IsForSale ?? oldProduct.IsForSale,
+                IsDeleted = oldProduct.IsDeleted,
                 Tipo = tipo,
             };
 
@@ -329,7 +323,7 @@ namespace APICore.Services.Impls
             if (ignoreQueryFilters)
                 query = query.IgnoreQueryFilters();
 
-            var product = await query.FirstOrDefaultAsync(p => p.Id == productId);
+            var product = await query.FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
             if (product == null)
                 throw new ProductNotFoundException(_localizer);
 
@@ -346,7 +340,7 @@ namespace APICore.Services.Impls
 
             var product = await _context.Products
                 .Include(p => p.ProductImages)
-                .FirstOrDefaultAsync(p => p.Id == productId);
+                .FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
             if (product == null)
                 throw new ProductNotFoundException(_localizer);
 
@@ -410,7 +404,7 @@ namespace APICore.Services.Impls
 
             var product = await _context.Products
                 .Include(p => p.ProductImages)
-                .FirstOrDefaultAsync(p => p.Id == productId);
+                .FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
             if (product == null)
                 throw new ProductNotFoundException(_localizer);
 
@@ -442,7 +436,7 @@ namespace APICore.Services.Impls
 
             var product = await _context.Products
                 .Include(p => p.ProductImages)
-                .FirstOrDefaultAsync(p => p.Id == productId);
+                .FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
             if (product == null)
                 throw new ProductNotFoundException(_localizer);
 
@@ -476,7 +470,7 @@ namespace APICore.Services.Impls
 
             var product = await _context.Products
                 .Include(p => p.ProductImages)
-                .FirstOrDefaultAsync(p => p.Id == productId);
+                .FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
             if (product == null)
                 throw new ProductNotFoundException(_localizer);
 

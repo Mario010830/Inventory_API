@@ -23,6 +23,12 @@ namespace APICore.Services
         Task<ChartComposedResponse> GetEntriesVsExitsAsync(int days, DateTime? from, DateTime? to);
         Task<ChartLineResponse> GetLowStockAlertsByDayAsync(int days);
 
+        /// <summary>Ventas confirmadas sin devolución: suma de totales (CUP) por período.</summary>
+        Task<DashboardGrossSalesProfitResponse> GetGrossSalesProfitKpiAsync(string? period);
+
+        /// <summary>Ventas confirmadas sin devolución: ingresos menos costo de productos (CUP).</summary>
+        Task<DashboardNetSalesProfitResponse> GetNetSalesProfitKpiAsync(string? period);
+
         // Productos
         Task<ProductStatsResponse> GetProductStatsAsync(DateTime? from, DateTime? to);
         Task<ChartLineResponse> GetProductPerformanceAsync(int days, DateTime? from, DateTime? to);

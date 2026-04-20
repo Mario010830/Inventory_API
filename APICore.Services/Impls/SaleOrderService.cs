@@ -83,7 +83,7 @@ namespace APICore.Services.Impls
             {
                 // IgnoreQueryFilters: invitados sin login; el producto debe ser de la org de la ubicación.
                 var product = await _context.Products.IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(p => p.Id == itemReq.ProductId && p.OrganizationId == orgId);
+                    .FirstOrDefaultAsync(p => p.Id == itemReq.ProductId && p.OrganizationId == orgId && !p.IsDeleted);
                 if (product == null)
                     throw new ProductNotFoundException(_localizer);
 

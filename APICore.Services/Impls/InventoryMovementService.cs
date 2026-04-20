@@ -43,7 +43,7 @@ namespace APICore.Services.Impls
             // Si el usuario tiene ubicación asignada, el movimiento es siempre en esa ubicación (no se puede cambiar).
             var effectiveLocationId = userLocationId ?? request.LocationId;
 
-            var product = await _uow.ProductRepository.FirstOrDefaultAsync(p => p.Id == request.ProductId);
+            var product = await _uow.ProductRepository.FirstOrDefaultAsync(p => p.Id == request.ProductId && !p.IsDeleted);
             if (product == null)
                 throw new ProductNotFoundException(_localizer);
 

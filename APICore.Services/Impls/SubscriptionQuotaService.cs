@@ -31,7 +31,7 @@ namespace APICore.Services.Impls
                 return;
 
             var count = await _context.Products.IgnoreQueryFilters()
-                .CountAsync(p => p.OrganizationId == organizationId);
+                .CountAsync(p => p.OrganizationId == organizationId && !p.IsDeleted);
             if (count >= plan.MaxProducts)
                 throw new PlanLimitExceededBadRequestException("Has alcanzado el límite de productos de tu plan actual.");
         }

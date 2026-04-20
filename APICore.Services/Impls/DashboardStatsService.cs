@@ -31,11 +31,12 @@ namespace APICore.Services.Impls
             if (orgId <= 0)
                 return new DashboardSummaryResponse();
 
-            var products = _uow.ProductRepository.GetAll();
+            var products = _uow.ProductRepository.GetAll().Where(p => !p.IsDeleted);
             var totalProducts = await products.CountAsync();
 
             var minStock = _inventorySettings.DefaultMinimumStock;
-            var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product);
+            var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product)
+                .Where(i => i.Product != null && !i.Product.IsDeleted);
             var inventoryValue = await inventories.SumAsync(i => i.CurrentStock * (i.Product != null ? i.Product.Costo : 0));
             var lowStockCount = await inventories.CountAsync(i => i.CurrentStock <= minStock);
 
@@ -87,7 +88,7 @@ namespace APICore.Services.Impls
 
         public async Task<ChartDonutResponse> GetCategoryDistributionAsync()
         {
-            var products = _uow.ProductRepository.GetAllIncluding(p => p.Category);
+            var products = _uow.ProductRepository.GetAllIncluding(p => p.Category).Where(p => !p.IsDeleted);
             var byCategory = await products
                 .Where(p => p.Category != null)
                 .GroupBy(p => p.Category!.Name)
@@ -102,6 +103,7 @@ namespace APICore.Services.Impls
             var start = (from ?? end.AddMonths(-months)).Date;
             if (start > end) start = end.AddMonths(-months);
             var totalValue = await _uow.InventoryRepository.GetAllIncluding(i => i.Product)
+                .Where(i => i.Product != null && !i.Product.IsDeleted)
                 .SumAsync(i => i.CurrentStock * (i.Product != null ? i.Product.Costo : 0));
             var culture = new CultureInfo("es-ES");
             var data = new List<ChartDataPointResponse>();
@@ -158,13 +160,13 @@ namespace APICore.Services.Impls
             return new ListCardResponse { Data = data };
         }
 
-     
         public async Task<ListCardResponse> GetListLowStockAsync(int limit)
         {
             var minStock = _inventorySettings.DefaultMinimumStock;
             var unit = _inventorySettings.DefaultUnitOfMeasure;
 
-            var lowStockByProduct = await _uow.InventoryRepository.GetAll()
+            var lowStockByProduct = await _uow.InventoryRepository.GetAllIncluding(i => i.Product)
+                .Where(i => i.Product != null && !i.Product.IsDeleted)
                 .GroupBy(i => i.ProductId)
                 .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(i => i.CurrentStock) })
                 .Where(x => x.TotalStock <= minStock)
@@ -177,7 +179,7 @@ namespace APICore.Services.Impls
 
             var productIds = lowStockByProduct.Select(x => x.ProductId).ToList();
             var productNames = await _uow.ProductRepository.GetAll()
-                .Where(p => productIds.Contains(p.Id))
+                .Where(p => productIds.Contains(p.Id) && !p.IsDeleted)
                 .ToDictionaryAsync(p => p.Id, p => p.Name ?? "—");
 
             var data = lowStockByProduct.Select(x => new ListCardItemResponse
@@ -212,7 +214,7 @@ namespace APICore.Services.Impls
         public async Task<ListCardResponse> GetListValueByLocationAsync(int limit)
         {
             var byLocation = await _uow.InventoryRepository.GetAllIncluding(i => i.Product, i => i.Location)
-                .Where(i => i.Location != null)
+                .Where(i => i.Location != null && i.Product != null && !i.Product.IsDeleted)
                 .GroupBy(i => i.LocationId)
                 .Select(g => new
                 {
@@ -239,7 +241,7 @@ namespace APICore.Services.Impls
         {
             var start = DateTime.UtcNow.AddDays(-days);
             var products = await _uow.ProductRepository.GetAll()
-                .Where(p => p.CreatedAt >= start)
+                .Where(p => !p.IsDeleted && p.CreatedAt >= start)
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(limit)
                 .ToListAsync();
@@ -295,11 +297,100 @@ namespace APICore.Services.Impls
             return new ChartLineResponse { Data = data };
         }
 
+        public async Task<DashboardGrossSalesProfitResponse> GetGrossSalesProfitKpiAsync(string? period)
+        {
+            var (grossTotal, _, orderCount, from, to, normalized) = await ComputeSalesWithoutReturnsProfitAsync(period);
+            return new DashboardGrossSalesProfitResponse
+            {
+                Period = normalized,
+                FromUtc = from,
+                ToUtcExclusive = to,
+                GrossProfit = grossTotal,
+                OrderCount = orderCount,
+            };
+        }
+
+        public async Task<DashboardNetSalesProfitResponse> GetNetSalesProfitKpiAsync(string? period)
+        {
+            var (_, netProfit, orderCount, from, to, normalized) = await ComputeSalesWithoutReturnsProfitAsync(period);
+            return new DashboardNetSalesProfitResponse
+            {
+                Period = normalized,
+                FromUtc = from,
+                ToUtcExclusive = to,
+                NetProfit = netProfit,
+                OrderCount = orderCount,
+            };
+        }
+
+        /// <summary>
+        /// Ventas confirmadas sin ninguna devolución registrada; ingreso = suma de totales;
+        /// ganancia neta KPI = ingreso − costo de ventas (UnitCost × cantidad por línea).
+        /// </summary>
+        private async Task<(decimal grossTotal, decimal netProfit, int orderCount, DateTime fromUtc, DateTime toUtcExclusive, string normalizedPeriod)>
+            ComputeSalesWithoutReturnsProfitAsync(string? period)
+        {
+            var (fromUtc, toUtcExclusive, normalizedPeriod) = ResolveSalesProfitPeriodUtc(period);
+            var orgId = _context.CurrentOrganizationId;
+            if (orgId <= 0)
+                return (0m, 0m, 0, fromUtc, toUtcExclusive, normalizedPeriod);
+
+            var decimals = _inventorySettings.PriceRoundingDecimals;
+
+            var rows = await _context.SaleOrders
+                .AsNoTracking()
+                .Where(s => s.Status == SaleOrderStatus.confirmed)
+                .Where(s => s.CreatedAt >= fromUtc && s.CreatedAt < toUtcExclusive)
+                .Where(s => !s.Returns.Any())
+                .Select(s => new
+                {
+                    s.Total,
+                    Cogs = s.Items.Sum(i => i.UnitCost * i.Quantity),
+                })
+                .ToListAsync();
+
+            var grossTotal = Math.Round(rows.Sum(x => x.Total), decimals, MidpointRounding.AwayFromZero);
+            var cogs = Math.Round(rows.Sum(x => x.Cogs), decimals, MidpointRounding.AwayFromZero);
+            var netProfit = Math.Round(grossTotal - cogs, decimals, MidpointRounding.AwayFromZero);
+            return (grossTotal, netProfit, rows.Count, fromUtc, toUtcExclusive, normalizedPeriod);
+        }
+
+        /// <summary>Rango en UTC según period: day, week, month, year (default month).</summary>
+        private static (DateTime fromUtc, DateTime toUtcExclusive, string normalizedPeriod) ResolveSalesProfitPeriodUtc(string? period)
+        {
+            var p = (period ?? "month").Trim().ToLowerInvariant();
+            if (p != "day" && p != "week" && p != "month" && p != "year")
+                p = "month";
+
+            var now = DateTime.UtcNow;
+            var today = now.Date;
+
+            return p switch
+            {
+                "day" => (today, today.AddDays(1), p),
+                "week" => ResolveUtcWeekRange(today, p),
+                "year" => (new DateTime(today.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(today.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc), p),
+                _ => (new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1), "month"),
+            };
+        }
+
+        /// <summary>Semana calendario empezando en lunes (UTC).</summary>
+        private static (DateTime fromUtc, DateTime toUtcExclusive, string normalizedPeriod) ResolveUtcWeekRange(DateTime todayUtc, string p)
+        {
+            var dow = (int)todayUtc.DayOfWeek;
+            var daysFromMonday = dow == 0 ? 6 : dow - (int)DayOfWeek.Monday;
+            var monday = todayUtc.AddDays(-daysFromMonday);
+            return (monday, monday.AddDays(7), p);
+        }
+
         public async Task<ProductStatsResponse> GetProductStatsAsync(DateTime? from, DateTime? to)
         {
             var minStock = _inventorySettings.DefaultMinimumStock;
-            var totalProducts = await _uow.ProductRepository.GetAll().CountAsync();
-            var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product);
+            var totalProducts = await _uow.ProductRepository.GetAll().Where(p => !p.IsDeleted).CountAsync();
+            var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product)
+                .Where(i => i.Product != null && !i.Product.IsDeleted);
             var inventoryValue = await inventories.SumAsync(i => i.CurrentStock * (i.Product != null ? i.Product.Costo : 0));
             var criticalStockCount = await inventories.CountAsync(i => i.CurrentStock <= minStock);
             var today = DateTime.UtcNow.Date;
@@ -333,11 +424,11 @@ namespace APICore.Services.Impls
         {
             var categories = _uow.ProductCategoryRepository.GetAll();
             var totalCategories = await categories.CountAsync();
-            var totalItems = await _uow.ProductRepository.GetAll().CountAsync();
+            var totalItems = await _uow.ProductRepository.GetAll().Where(p => !p.IsDeleted).CountAsync();
             var lastEdited = await categories.OrderByDescending(c => c.ModifiedAt).FirstOrDefaultAsync();
             var lastEditedAgo = lastEdited == null ? "" : FormatTimeAgo(DateTime.UtcNow - lastEdited.ModifiedAt);
             var mostActive = await _uow.ProductRepository.GetAll()
-                .Where(p => p.CategoryId != null)
+                .Where(p => !p.IsDeleted && p.CategoryId != null)
                 .GroupBy(p => p.CategoryId)
                 .OrderByDescending(g => g.Count())
                 .Select(g => g.Key)
@@ -361,6 +452,7 @@ namespace APICore.Services.Impls
         public async Task<ChartLineResponse> GetCategoryItemDistributionAsync(string? period, int? days)
         {
             var byCategory = await _uow.ProductRepository.GetAll()
+                .Where(p => !p.IsDeleted)
                 .GroupBy(p => p.CategoryId)
                 .Select(g => new { CategoryId = g.Key, Count = g.Count() })
                 .ToListAsync();
@@ -378,7 +470,7 @@ namespace APICore.Services.Impls
         public async Task<ChartDonutResponse> GetCategoryStorageUsageAsync()
         {
             var byCategory = await _uow.ProductRepository.GetAllIncluding(p => p.Category)
-                .Where(p => p.Category != null)
+                .Where(p => !p.IsDeleted && p.Category != null)
                 .GroupBy(p => p.Category!.Name)
                 .Select(g => new ChartDonutItemResponse { Name = g.Key ?? "Otros", Value = g.Count() })
                 .ToListAsync();
@@ -433,13 +525,14 @@ namespace APICore.Services.Impls
         public async Task<InventoryStatsResponse> GetInventoryStatsAsync()
         {
             var minStock = _inventorySettings.DefaultMinimumStock;
-            var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product);
+            var inventories = _uow.InventoryRepository.GetAllIncluding(i => i.Product)
+                .Where(i => i.Product != null && !i.Product.IsDeleted);
             var totalValue = await inventories.SumAsync(i => i.CurrentStock * (i.Product != null ? i.Product.Costo : 0));
             var lowStockCount = await inventories.CountAsync(i => i.CurrentStock <= minStock);
             var today = DateTime.UtcNow.Date;
             var movementsCount = await _uow.InventoryMovementRepository.GetAll()
                 .CountAsync(m => m.CreatedAt >= today && m.CreatedAt < today.AddDays(1));
-            var productsCount = await _uow.ProductRepository.GetAll().CountAsync();
+            var productsCount = await _uow.ProductRepository.GetAll().Where(p => !p.IsDeleted).CountAsync();
 
             return new InventoryStatsResponse
             {

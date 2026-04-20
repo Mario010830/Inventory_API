@@ -32,7 +32,7 @@ namespace APICore.Services.Impls
             if (orgId <= 0)
                 throw new UnauthorizedException(_localizer);
 
-            var product = await _uow.ProductRepository.FirstOrDefaultAsync(p => p.Id == request.ProductId && p.OrganizationId == orgId);
+            var product = await _uow.ProductRepository.FirstOrDefaultAsync(p => p.Id == request.ProductId && p.OrganizationId == orgId && !p.IsDeleted);
             if (product == null)
                 throw new ProductNotFoundException(_localizer);
 

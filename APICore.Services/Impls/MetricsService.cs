@@ -198,7 +198,7 @@ namespace APICore.Services.Impls
 
             var noSales = await _context.Products
                 .AsNoTracking()
-                .Where(p => p.OrganizationId == businessId && p.IsForSale && p.IsAvailable && !soldSet.Contains(p.Id))
+                .Where(p => p.OrganizationId == businessId && p.IsForSale && p.IsAvailable && !p.IsDeleted && !soldSet.Contains(p.Id))
                 .OrderBy(p => p.Name)
                 .Select(p => new MetricsProductNoSalesResponse { ProductId = p.Id, Name = p.Name })
                 .Take(100)

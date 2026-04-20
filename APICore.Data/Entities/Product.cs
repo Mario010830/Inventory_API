@@ -16,7 +16,9 @@ namespace APICore.Data.Entities
         public bool IsAvailable { get; set; }
         public bool IsForSale { get; set; }
 
-        
+        /// <summary>Borrado lógico: el registro permanece por historial de ventas (FK) y no se lista en catálogos administrativos.</summary>
+        public bool IsDeleted { get; set; }
+
         public ProductType Tipo { get; set; } = ProductType.inventariable;
 
         public ProductCategory? Category { get; set; }

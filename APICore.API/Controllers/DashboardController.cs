@@ -1,4 +1,6 @@
+using APICore.API.Authorization;
 using APICore.API.BasicResponses;
+using APICore.Common.Constants;
 using APICore.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +29,30 @@ namespace APICore.API.Controllers
         public async Task<IActionResult> GetSummary([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         {
             var result = await _dashboardStatsService.GetDashboardSummaryAsync(from, to);
+            return Ok(new ApiOkResponse(result));
+        }
+
+        /// <summary>
+        /// KPI: ingreso bruto (CUP) = suma de totales de ventas confirmadas sin devolución en el período (day, week, month, year).
+        /// </summary>
+        [HttpGet("kpi/gross-sales-profit")]
+        [RequirePermission(PermissionCodes.SaleRead)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetGrossSalesProfitKpi([FromQuery] string? period = "month")
+        {
+            var result = await _dashboardStatsService.GetGrossSalesProfitKpiAsync(period);
+            return Ok(new ApiOkResponse(result));
+        }
+
+        /// <summary>
+        /// KPI: ganancia neta (CUP) = ingresos de esas ventas menos costo de productos vendidos (UnitCost × cantidad).
+        /// </summary>
+        [HttpGet("kpi/net-sales-profit")]
+        [RequirePermission(PermissionCodes.SaleRead)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetNetSalesProfitKpi([FromQuery] string? period = "month")
+        {
+            var result = await _dashboardStatsService.GetNetSalesProfitKpiAsync(period);
             return Ok(new ApiOkResponse(result));
         }
 

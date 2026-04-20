@@ -523,7 +523,7 @@ namespace APICore.Services.Impls
             // IMPORTANT: evitar operaciones EF en paralelo sobre el mismo DbContext.
             var (from, toExclusive) = NormalizeDateRange(dateFrom, dateTo);
 
-            var productsQuery = _uow.ProductRepository.GetAll().AsNoTracking();
+            var productsQuery = _uow.ProductRepository.GetAll().AsNoTracking().Where(p => !p.IsDeleted);
             var totalProducts = await productsQuery.LongCountAsync();
             var activeProducts = await productsQuery.LongCountAsync(p => p.IsAvailable && p.IsForSale);
 
