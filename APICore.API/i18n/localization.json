@@ -642,6 +642,55 @@
       "en-US": "Internal server error.",
       "es-ES": "Error interno del servidor."
     }
+  },
+  {
+    "Key": "400510",
+    "LocalizedValue": {
+      "en-US": "Select at least one role (customer, supplier or lead).",
+      "es-ES": "Indique al menos un rol (customer, supplier o lead)."
+    }
+  },
+  {
+    "Key": "400511",
+    "LocalizedValue": {
+      "en-US": "This contact is not marked as a customer and cannot be used on a sale.",
+      "es-ES": "Este contacto no está marcado como cliente y no puede usarse en una venta."
+    }
+  },
+  {
+    "Key": "400512",
+    "LocalizedValue": {
+      "en-US": "This contact is not marked as a supplier.",
+      "es-ES": "Este contacto no está marcado como proveedor."
+    }
+  },
+  {
+    "Key": "400514",
+    "LocalizedValue": {
+      "en-US": "This sale was fully returned; it cannot be confirmed, cancelled or returned again.",
+      "es-ES": "Esta venta fue devuelta por completo; no se puede confirmar, cancelar ni registrar otra devolución."
+    }
+  },
+  {
+    "Key": "400515",
+    "LocalizedValue": {
+      "en-US": "Invalid stock parent link: both parent product and consumption factor are required, parent must be inventariable without its own parent, same organization, and factor must be greater than zero.",
+      "es-ES": "Vínculo de stock inválido: deben indicarse producto padre y factor de consumo, el padre debe ser inventariable sin otro padre, de la misma organización, y el factor debe ser mayor que cero."
+    }
+  },
+  {
+    "Key": "400516",
+    "LocalizedValue": {
+      "en-US": "This product draws stock from a parent product; register inventory movements on the parent SKU, not on this sales unit.",
+      "es-ES": "Este producto consume stock de un producto padre; registre movimientos de inventario sobre el SKU padre, no sobre esta unidad de venta."
+    }
+  },
+  {
+    "Key": "400517",
+    "LocalizedValue": {
+      "en-US": "This product already has its own inventory rows; clear or transfer stock before linking it to a parent SKU.",
+      "es-ES": "Este producto ya tiene inventario propio; vacíe o traspase el stock antes de vincularlo a un producto padre."
+    }
   }
 
 ]

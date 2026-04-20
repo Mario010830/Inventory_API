@@ -31,6 +31,8 @@ namespace APICore.Services
 
         Task<User> UpdateProfileAsync(UpdateProfileRequest updateProfile, int userId);
 
+        Task<User> UpdateMobileListLayoutAsync(UpdateMobileListLayoutRequest request, int userId);
+
         Task<bool> ValidateTokenAsync(string token);
 
         Task<User> GetUserAsync(int userId);

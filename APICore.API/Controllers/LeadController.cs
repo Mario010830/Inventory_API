@@ -28,7 +28,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpPost]
-        [RequirePermission(PermissionCodes.LeadCreate)]
+        [RequirePermission(PermissionCodes.LeadCreate, PermissionCodes.ContactCreate)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Created)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
         public async Task<IActionResult> CreateLead([FromBody] CreateLeadRequest request)
@@ -39,7 +39,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpGet]
-        [RequirePermission(PermissionCodes.LeadRead)]
+        [RequirePermission(PermissionCodes.LeadRead, PermissionCodes.ContactRead)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
         public async Task<IActionResult> GetLeads(int? page, int? perPage, string? status = null, string sortOrder = null)
@@ -50,7 +50,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpGet("id")]
-        [RequirePermission(PermissionCodes.LeadRead)]
+        [RequirePermission(PermissionCodes.LeadRead, PermissionCodes.ContactRead)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> GetLeadById(int id)
@@ -61,7 +61,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpPut]
-        [RequirePermission(PermissionCodes.LeadUpdate)]
+        [RequirePermission(PermissionCodes.LeadUpdate, PermissionCodes.ContactUpdate)]
         [ProducesResponseType((int)HttpStatusCode.NoContent)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
@@ -72,7 +72,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpDelete]
-        [RequirePermission(PermissionCodes.LeadDelete)]
+        [RequirePermission(PermissionCodes.LeadDelete, PermissionCodes.ContactDelete)]
         [ProducesResponseType((int)HttpStatusCode.NoContent)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> DeleteLead(int id)
@@ -82,7 +82,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpPost("{id}/convert")]
-        [RequirePermission(PermissionCodes.LeadUpdate)]
+        [RequirePermission(PermissionCodes.LeadUpdate, PermissionCodes.ContactUpdate)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Created)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]

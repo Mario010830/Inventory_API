@@ -195,6 +195,21 @@ namespace APICore.API.Controllers
         }
 
         /// <summary>
+        /// Preferencia de listas en móvil (tabla vs vista cómoda). El front muestra el popup con capturas;
+        /// aquí solo se persiste <c>table</c>, <c>comfortable</c> o se borra con cuerpo vacío/null.
+        /// </summary>
+        [Authorize]
+        [HttpPut("mobile-list-layout")]
+        [ProducesResponseType(typeof(ApiOkResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        public async Task<IActionResult> UpdateMobileListLayout([FromBody] UpdateMobileListLayoutRequest request)
+        {
+            var loggedUser = User.GetUserIdFromToken();
+            var user = await _accountService.UpdateMobileListLayoutAsync(request, loggedUser);
+            return Ok(new ApiOkResponse(_mapper.Map<UserResponse>(user)));
+        }
+
+        /// <summary>
         /// Validate token.
         /// </summary>
         /// <param name="validateToken">

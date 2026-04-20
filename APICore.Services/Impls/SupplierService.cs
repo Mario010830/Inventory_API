@@ -24,108 +24,120 @@ namespace APICore.Services.Impls
             _localizer = localizer;
         }
 
-        public async Task<Supplier> CreateSupplier(CreateSupplierRequest request)
+        public async Task<Contact> CreateSupplier(CreateSupplierRequest request)
         {
             var orgId = _context.CurrentOrganizationId;
             if (orgId <= 0)
                 throw new UnauthorizedException(_localizer);
 
-            var nameExists = await _uow.SupplierRepository.FindAllAsync(s => s.Name == request.Name && s.OrganizationId == orgId);
+            var nameExists = await _uow.ContactRepository.FindAllAsync(c =>
+                c.Name == request.Name && c.OrganizationId == orgId && c.IsSupplier);
             if (nameExists != null && nameExists.Count > 0)
-            {
                 throw new SupplierNameInUseBadRequestException(_localizer);
-            }
 
-            var newSupplier = new Supplier
+            var contact = new Contact
             {
                 OrganizationId = orgId,
                 Name = request.Name,
+                Company = null,
                 ContactPerson = request.ContactPerson,
                 Phone = request.Phone,
                 Email = request.Email,
                 Address = request.Address,
                 Notes = request.Notes,
+                Origin = null,
                 IsActive = request.IsActive,
+                AssignedUserId = null,
+                IsCustomer = false,
+                IsSupplier = true,
+                LeadStatus = null,
+                LeadConvertedAt = null,
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
 
-            await _uow.SupplierRepository.AddAsync(newSupplier);
+            await _uow.ContactRepository.AddAsync(contact);
             await _uow.CommitAsync();
 
-            return newSupplier;
+            return contact;
         }
 
         public async Task DeleteSupplier(int id)
         {
-            var supplier = await _uow.SupplierRepository.FirstOrDefaultAsync(s => s.Id == id);
-            if (supplier == null)
-            {
+            var contact = await _uow.ContactRepository.FirstOrDefaultAsync(c => c.Id == id && c.IsSupplier);
+            if (contact == null)
                 throw new SupplierNotFoundException(_localizer);
-            }
 
-            var movements = await _uow.InventoryMovementRepository.FindAllAsync(m => m.SupplierId == id);
+            var movements = await _uow.InventoryMovementRepository.FindAllAsync(m => m.SupplierContactId == id);
             if (movements != null && movements.Count > 0)
-            {
                 throw new SupplierHasMovementsBadRequestException(_localizer);
-            }
 
-            _uow.SupplierRepository.Delete(supplier);
+            if (contact.IsCustomer)
+            {
+                contact.IsSupplier = false;
+                contact.ModifiedAt = DateTime.UtcNow;
+                await _uow.ContactRepository.UpdateAsync(contact, contact.Id);
+            }
+            else
+                _uow.ContactRepository.Delete(contact);
+
             await _uow.CommitAsync();
         }
 
-        public async Task<PaginatedList<Supplier>> GetAllSuppliers(int? page, int? perPage, string sortOrder = null)
+        public async Task<PaginatedList<Contact>> GetAllSuppliers(int? page, int? perPage, string sortOrder = null)
         {
-            var suppliers = _uow.SupplierRepository.GetAll();
+            var suppliers = _uow.ContactRepository.GetAll().Where(c => c.IsSupplier);
             var pageIndex = page ?? 1;
             var perPageIndex = perPage ?? 10;
-            return await PaginatedList<Supplier>.CreateAsync(suppliers, pageIndex, perPageIndex);
+            return await PaginatedList<Contact>.CreateAsync(suppliers, pageIndex, perPageIndex);
         }
 
-        public async Task<Supplier> GetSupplier(int id)
+        public async Task<Contact> GetSupplier(int id)
         {
-            var supplier = await _uow.SupplierRepository.FirstOrDefaultAsync(s => s.Id == id);
-            if (supplier == null)
-            {
+            var contact = await _uow.ContactRepository.FirstOrDefaultAsync(c => c.Id == id && c.IsSupplier);
+            if (contact == null)
                 throw new SupplierNotFoundException(_localizer);
-            }
-            return supplier;
+            return contact;
         }
 
         public async Task UpdateSupplier(int id, UpdateSupplierRequest request)
         {
-            var oldSupplier = await _uow.SupplierRepository.FirstOrDefaultAsync(s => s.Id == id);
-            if (oldSupplier == null)
-            {
+            var old = await _uow.ContactRepository.FirstOrDefaultAsync(c => c.Id == id && c.IsSupplier);
+            if (old == null)
                 throw new SupplierNotFoundException(_localizer);
-            }
 
             if (request.Name != null)
             {
                 var orgId = _context.CurrentOrganizationId;
-                var nameExists = await _uow.SupplierRepository.FindAllAsync(s => s.Name == request.Name && s.Id != id && s.OrganizationId == orgId);
+                var nameExists = await _uow.ContactRepository.FindAllAsync(c =>
+                    c.Name == request.Name && c.Id != id && c.OrganizationId == orgId && c.IsSupplier);
                 if (nameExists != null && nameExists.Count > 0)
-                {
                     throw new SupplierNameInUseBadRequestException(_localizer);
-                }
             }
 
-            var updatedSupplier = new Supplier
+            var updated = new Contact
             {
-                Id = oldSupplier.Id,
-                OrganizationId = oldSupplier.OrganizationId,
-                CreatedAt = oldSupplier.CreatedAt,
+                Id = old.Id,
+                OrganizationId = old.OrganizationId,
+                CreatedAt = old.CreatedAt,
                 ModifiedAt = DateTime.UtcNow,
-                Name = request.Name ?? oldSupplier.Name,
-                ContactPerson = request.ContactPerson ?? oldSupplier.ContactPerson,
-                Phone = request.Phone ?? oldSupplier.Phone,
-                Email = request.Email ?? oldSupplier.Email,
-                Address = request.Address ?? oldSupplier.Address,
-                Notes = request.Notes ?? oldSupplier.Notes,
-                IsActive = request.IsActive ?? oldSupplier.IsActive,
+                Name = request.Name ?? old.Name,
+                Company = old.Company,
+                ContactPerson = request.ContactPerson ?? old.ContactPerson,
+                Phone = request.Phone ?? old.Phone,
+                Email = request.Email ?? old.Email,
+                Address = request.Address ?? old.Address,
+                Notes = request.Notes ?? old.Notes,
+                Origin = old.Origin,
+                IsActive = request.IsActive ?? old.IsActive,
+                AssignedUserId = old.AssignedUserId,
+                IsCustomer = old.IsCustomer,
+                IsSupplier = true,
+                LeadStatus = old.LeadStatus,
+                LeadConvertedAt = old.LeadConvertedAt,
             };
 
-            await _uow.SupplierRepository.UpdateAsync(updatedSupplier, oldSupplier.Id);
+            await _uow.ContactRepository.UpdateAsync(updated, old.Id);
             await _uow.CommitAsync();
         }
     }

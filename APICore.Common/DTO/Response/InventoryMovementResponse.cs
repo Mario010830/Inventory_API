@@ -18,7 +18,7 @@ namespace APICore.Common.DTO.Response
         public decimal? UnitCost { get; set; }
         public decimal? UnitPrice { get; set; }
         public string? Reason { get; set; }
-        public int? SupplierId { get; set; }
+        public int? SupplierContactId { get; set; }
         public string? ReferenceDocument { get; set; }
         public int? UserId { get; set; }
         public DateTime CreatedAt { get; set; }

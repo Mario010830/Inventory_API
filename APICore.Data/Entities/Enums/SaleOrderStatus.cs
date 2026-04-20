@@ -4,6 +4,8 @@ namespace APICore.Data.Entities.Enums
     {
         draft,
         confirmed,
+        /// <summary>Venta anulada por devolución total del pedido (el stock ya fue repuesto vía devoluciones).</summary>
+        returned,
         cancelled
     }
 }

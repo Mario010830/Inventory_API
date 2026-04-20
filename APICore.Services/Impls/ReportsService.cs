@@ -470,7 +470,7 @@ namespace APICore.Services.Impls
             var adjustments = await movementQuery.LongCountAsync(m => m.Type == InventoryMovementType.adjustment);
 
             var movementDetailQuery = _uow.InventoryMovementRepository
-                .GetAllIncluding(m => m.Product, m => m.Supplier)
+                .GetAllIncluding(m => m.Product, m => m.SupplierContact)
                 .AsNoTracking();
 
             if (locationId.HasValue)
@@ -494,8 +494,8 @@ namespace APICore.Services.Impls
                     ProductId = m.ProductId,
                     ProductCode = m.Product != null ? m.Product.Code : null,
                     ProductName = m.Product != null ? m.Product.Name : null,
-                    SupplierId = m.SupplierId,
-                    SupplierName = m.Supplier != null ? m.Supplier.Name : null,
+                    SupplierId = m.SupplierContactId,
+                    SupplierName = m.SupplierContact != null ? m.SupplierContact.Name : null,
                     LocationId = m.LocationId
                 })
                 .ToListAsync();
@@ -640,11 +640,9 @@ namespace APICore.Services.Impls
             // IMPORTANT: evitar operaciones EF en paralelo sobre el mismo DbContext.
             var (from, toExclusive) = NormalizeDateRange(dateFrom, dateTo);
 
-            // Nota: los Leads/Contacts dependen del tenant por OrganizationId.
-            var leadsQuery = _uow.LeadRepository.GetAll().AsNoTracking();
-            var leadsWithContactQuery = _uow.LeadRepository
-                .GetAllIncluding(l => l.ConvertedToContact)
-                .AsNoTracking();
+            // CRM: contactos con historial de lead (pipeline o convertidos).
+            var leadsQuery = _uow.ContactRepository.GetAll().AsNoTracking()
+                .Where(c => c.LeadConvertedAt.HasValue || c.LeadStatus != null);
 
             if (from.HasValue)
                 leadsQuery = leadsQuery.Where(l => l.CreatedAt >= from.Value);
@@ -652,10 +650,10 @@ namespace APICore.Services.Impls
                 leadsQuery = leadsQuery.Where(l => l.CreatedAt < toExclusive.Value);
 
             var totalLeads = await leadsQuery.LongCountAsync();
-            var convertedLeads = await leadsQuery.LongCountAsync(l => l.ConvertedToContactId.HasValue);
+            var convertedLeads = await leadsQuery.LongCountAsync(l => l.LeadConvertedAt.HasValue);
             var conversionRate = totalLeads > 0 ? (decimal)convertedLeads / totalLeads : 0m;
 
-            var leadsListQuery = leadsWithContactQuery;
+            var leadsListQuery = leadsQuery;
             if (from.HasValue)
                 leadsListQuery = leadsListQuery.Where(l => l.CreatedAt >= from.Value);
             if (toExclusive.HasValue)
@@ -669,11 +667,11 @@ namespace APICore.Services.Impls
                     LeadId = l.Id,
                     l.Name,
                     l.Company,
-                    l.Status,
+                    Status = l.LeadStatus ?? (l.LeadConvertedAt.HasValue ? "Convertido" : ""),
                     l.CreatedAt,
-                    l.ConvertedToContactId,
-                    l.ConvertedAt,
-                    ContactName = l.ConvertedToContact != null ? l.ConvertedToContact.Name : null
+                    ConvertedToContactId = l.LeadConvertedAt.HasValue ? (int?)l.Id : null,
+                    ConvertedAt = l.LeadConvertedAt,
+                    ContactName = l.LeadConvertedAt.HasValue ? l.Name : null
                 })
                 .ToListAsync();
 
@@ -725,7 +723,7 @@ namespace APICore.Services.Impls
                 .ToListAsync();
 
             var movementDetailQuery2 = _uow.InventoryMovementRepository
-                .GetAllIncluding(m => m.Product, m => m.Supplier)
+                .GetAllIncluding(m => m.Product, m => m.SupplierContact)
                 .AsNoTracking();
 
             if (locationId.HasValue)
@@ -749,8 +747,8 @@ namespace APICore.Services.Impls
                     ProductId = m.ProductId,
                     ProductCode = m.Product != null ? m.Product.Code : null,
                     ProductName = m.Product != null ? m.Product.Name : null,
-                    SupplierId = m.SupplierId,
-                    SupplierName = m.Supplier != null ? m.Supplier.Name : null,
+                    SupplierId = m.SupplierContactId,
+                    SupplierName = m.SupplierContact != null ? m.SupplierContact.Name : null,
                     LocationId = m.LocationId
                 })
                 .ToListAsync();

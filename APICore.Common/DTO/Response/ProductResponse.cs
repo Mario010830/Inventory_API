@@ -18,6 +18,10 @@ namespace APICore.Common.DTO.Response
         public bool IsAvailable { get; set; }
         public bool IsForSale { get; set; }
         public string Tipo { get; set; } = "inventariable";
+
+        public int? StockParentProductId { get; set; }
+        public decimal? StockUnitsConsumedPerSaleUnit { get; set; }
+
         /// <summary>Ubicaciones donde el producto elaborado está ofertado (vacío si no aplica o sin filas).</summary>
         public List<int> OfferLocationIds { get; set; } = new List<int>();
         public decimal TotalStock { get; set; }

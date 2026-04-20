@@ -21,7 +21,6 @@ namespace APICore.Data.UoW
             LogRepository ??= new GenericRepository<Log>(_context);
             ProductRepository ??= new GenericRepository<Product>(_context);
             ProductCategoryRepository ??= new GenericRepository<ProductCategory>(_context);
-            SupplierRepository ??= new GenericRepository<Supplier>(_context);
             InventoryMovementRepository ??= new GenericRepository<InventoryMovement>(_context);
             InventoryRepository ??= new GenericRepository<Inventory>(_context);
             OrganizationRepository ??= new GenericRepository<Organization>(_context);
@@ -30,7 +29,9 @@ namespace APICore.Data.UoW
             PermissionRepository ??= new GenericRepository<Permission>(_context);
             RolePermissionRepository ??= new GenericRepository<RolePermission>(_context);
             ContactRepository ??= new GenericRepository<Contact>(_context);
-            LeadRepository ??= new GenericRepository<Lead>(_context);
+            CustomerLoyaltyAccountRepository ??= new GenericRepository<CustomerLoyaltyAccount>(_context);
+            LoyaltyEventRepository ??= new GenericRepository<LoyaltyEvent>(_context);
+            LoyaltySettingsRepository ??= new GenericRepository<LoyaltySettings>(_context);
             SaleOrderRepository ??= new GenericRepository<SaleOrder>(_context);
             SaleOrderItemRepository ??= new GenericRepository<SaleOrderItem>(_context);
             SaleReturnRepository ??= new GenericRepository<SaleReturn>(_context);
@@ -62,7 +63,6 @@ namespace APICore.Data.UoW
         public IGenericRepository<Setting> SettingRepository { get; set; }
         public IGenericRepository<Log> LogRepository { get; set; }
         public IGenericRepository<Product> ProductRepository { get; set; }
-        public IGenericRepository<Supplier> SupplierRepository { get; set; }
         public IGenericRepository<Inventory> InventoryRepository { get; set; }
         public IGenericRepository<InventoryMovement> InventoryMovementRepository { get; set; }
         public IGenericRepository<ProductCategory> ProductCategoryRepository { get; set; }
@@ -72,7 +72,9 @@ namespace APICore.Data.UoW
         public IGenericRepository<Permission> PermissionRepository { get; set; }
         public IGenericRepository<RolePermission> RolePermissionRepository { get; set; }
         public IGenericRepository<Contact> ContactRepository { get; set; }
-        public IGenericRepository<Lead> LeadRepository { get; set; }
+        public IGenericRepository<CustomerLoyaltyAccount> CustomerLoyaltyAccountRepository { get; set; }
+        public IGenericRepository<LoyaltyEvent> LoyaltyEventRepository { get; set; }
+        public IGenericRepository<LoyaltySettings> LoyaltySettingsRepository { get; set; }
         public IGenericRepository<SaleOrder> SaleOrderRepository { get; set; }
         public IGenericRepository<SaleOrderItem> SaleOrderItemRepository { get; set; }
         public IGenericRepository<SaleReturn> SaleReturnRepository { get; set; }

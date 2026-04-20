@@ -24,9 +24,10 @@ namespace APICore.Data
         public DbSet<Inventory> Inventories { get; set; }
         public DbSet<InventoryMovement> InventoryMovements { get; set; }
         public DbSet<ProductCategory> ProductCategories { get; set; }
-        public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<Contact> Contacts { get; set; }
-        public DbSet<Lead> Leads { get; set; }
+        public DbSet<CustomerLoyaltyAccount> CustomerLoyaltyAccounts { get; set; }
+        public DbSet<LoyaltyEvent> LoyaltyEvents { get; set; }
+        public DbSet<LoyaltySettings> LoyaltySettings { get; set; }
         public DbSet<Organization> Organizations { get; set; }
         public DbSet<Location> Locations { get; set; }
         public DbSet<Role> Roles { get; set; }
@@ -119,9 +120,11 @@ namespace APICore.Data
                 .HasForeignKey(m => m.ProductId);
 
             modelBuilder.Entity<InventoryMovement>()
-                .HasOne(m => m.Supplier)
-                .WithMany(s => s.InventoryMovements)
-                .HasForeignKey(m => m.SupplierId);
+                .HasOne(m => m.SupplierContact)
+                .WithMany()
+                .HasForeignKey(m => m.SupplierContactId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<InventoryMovement>()
                 .HasOne(m => m.Location)
@@ -327,6 +330,14 @@ namespace APICore.Data
                 .WithMany(o => o.Products)
                 .HasForeignKey(p => p.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Product>()
+                .HasOne(p => p.StockParentProduct)
+                .WithMany(p => p.ChildStockProducts)
+                .HasForeignKey(p => p.StockParentProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Product>()
+                .Property(p => p.StockUnitsConsumedPerSaleUnit)
+                .HasPrecision(18, 8);
 
             modelBuilder.Entity<Promotion>()
                 .Property(p => p.Type)
@@ -378,12 +389,6 @@ namespace APICore.Data
                 .WithMany(o => o.ProductCategories)
                 .HasForeignKey(c => c.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
-            modelBuilder.Entity<Supplier>()
-                .HasOne(s => s.Organization)
-                .WithMany(o => o.Suppliers)
-                .HasForeignKey(s => s.OrganizationId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             modelBuilder.Entity<Contact>()
                 .HasOne(c => c.Organization)
                 .WithMany()
@@ -395,21 +400,45 @@ namespace APICore.Data
                 .HasForeignKey(c => c.AssignedUserId)
                 .IsRequired(false);
 
-            modelBuilder.Entity<Lead>()
-                .HasOne(l => l.Organization)
+            modelBuilder.Entity<CustomerLoyaltyAccount>()
+                .HasOne(a => a.Organization)
                 .WithMany()
-                .HasForeignKey(l => l.OrganizationId)
+                .HasForeignKey(a => a.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
-            modelBuilder.Entity<Lead>()
-                .HasOne(l => l.AssignedUser)
+            modelBuilder.Entity<CustomerLoyaltyAccount>()
+                .HasOne(a => a.Contact)
                 .WithMany()
-                .HasForeignKey(l => l.AssignedUserId)
-                .IsRequired(false);
-            modelBuilder.Entity<Lead>()
-                .HasOne(l => l.ConvertedToContact)
+                .HasForeignKey(a => a.ContactId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<CustomerLoyaltyAccount>()
+                .HasIndex(a => new { a.OrganizationId, a.ContactId })
+                .IsUnique();
+
+            modelBuilder.Entity<LoyaltyEvent>()
+                .HasOne(e => e.Organization)
                 .WithMany()
-                .HasForeignKey(l => l.ConvertedToContactId)
-                .IsRequired(false);
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<LoyaltyEvent>()
+                .HasOne(e => e.Contact)
+                .WithMany()
+                .HasForeignKey(e => e.ContactId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<LoyaltyEvent>()
+                .HasOne(e => e.SaleOrder)
+                .WithMany()
+                .HasForeignKey(e => e.SaleOrderId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<LoyaltySettings>()
+                .HasOne(s => s.Organization)
+                .WithMany()
+                .HasForeignKey(s => s.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<LoyaltySettings>()
+                .HasIndex(s => s.OrganizationId)
+                .IsUnique();
 
             modelBuilder.Entity<Role>()
                 .HasOne(r => r.Organization)
@@ -446,6 +475,9 @@ namespace APICore.Data
                 .WithMany(o => o.Users)
                 .HasForeignKey(u => u.OrganizationId)
                 .IsRequired(false);
+            modelBuilder.Entity<User>()
+                .Property(u => u.Salary)
+                .HasPrecision(18, 2);
 
         
             // SuperAdmin: IgnoreLocationFilter = true → ve todo.
@@ -486,15 +518,18 @@ namespace APICore.Data
             modelBuilder.Entity<Promotion>().HasQueryFilter(p =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && p.OrganizationId == CurrentOrganizationId));
-            modelBuilder.Entity<Supplier>().HasQueryFilter(s =>
-                IgnoreLocationFilter
-                || (CurrentOrganizationId > 0 && s.OrganizationId == CurrentOrganizationId));
             modelBuilder.Entity<Contact>().HasQueryFilter(c =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && c.OrganizationId == CurrentOrganizationId));
-            modelBuilder.Entity<Lead>().HasQueryFilter(l =>
+            modelBuilder.Entity<CustomerLoyaltyAccount>().HasQueryFilter(a =>
                 IgnoreLocationFilter
-                || (CurrentOrganizationId > 0 && l.OrganizationId == CurrentOrganizationId));
+                || (CurrentOrganizationId > 0 && a.OrganizationId == CurrentOrganizationId));
+            modelBuilder.Entity<LoyaltyEvent>().HasQueryFilter(e =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && e.OrganizationId == CurrentOrganizationId));
+            modelBuilder.Entity<LoyaltySettings>().HasQueryFilter(s =>
+                IgnoreLocationFilter
+                || (CurrentOrganizationId > 0 && s.OrganizationId == CurrentOrganizationId));
             modelBuilder.Entity<Role>().HasQueryFilter(r =>
                 IgnoreLocationFilter
                 || (CurrentOrganizationId > 0 && (r.OrganizationId == null || r.OrganizationId == CurrentOrganizationId)));

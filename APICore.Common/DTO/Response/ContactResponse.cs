@@ -15,6 +15,10 @@ namespace APICore.Common.DTO.Response
         public string? Origin { get; set; }
         public bool IsActive { get; set; }
         public int? AssignedUserId { get; set; }
+        public bool IsCustomer { get; set; }
+        public bool IsSupplier { get; set; }
+        public string? LeadStatus { get; set; }
+        public DateTime? LeadConvertedAt { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime ModifiedAt { get; set; }
     }

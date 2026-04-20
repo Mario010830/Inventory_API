@@ -25,14 +25,22 @@ namespace APICore.Services.Impls
         private readonly IStorageService _storageService;
         private readonly IStringLocalizer<IProductService> _localizer;
         private readonly ISubscriptionQuotaService _subscriptionQuotaService;
+        private readonly IInventorySettings _inventorySettings;
 
-        public ProductService(IUnitOfWork uow, CoreDbContext context, IStorageService storageService, IStringLocalizer<IProductService> localizer, ISubscriptionQuotaService subscriptionQuotaService)
+        public ProductService(
+            IUnitOfWork uow,
+            CoreDbContext context,
+            IStorageService storageService,
+            IStringLocalizer<IProductService> localizer,
+            ISubscriptionQuotaService subscriptionQuotaService,
+            IInventorySettings inventorySettings)
         {
             _uow = uow;
             _context = context;
             _storageService = storageService ?? throw new ArgumentNullException(nameof(storageService));
             _localizer = localizer;
             _subscriptionQuotaService = subscriptionQuotaService ?? throw new ArgumentNullException(nameof(subscriptionQuotaService));
+            _inventorySettings = inventorySettings ?? throw new ArgumentNullException(nameof(inventorySettings));
         }
 
         public async Task<Product> CreateProduct(CreateProductRequest request)
@@ -65,6 +73,9 @@ namespace APICore.Services.Impls
             if (!string.IsNullOrWhiteSpace(request.Tipo) && Enum.TryParse<ProductType>(request.Tipo, true, out var parsedTipo))
                 tipo = parsedTipo;
 
+            var (parentId, unitsPerSale) = ResolveStockParentFromCreateRequest(request);
+            await ValidateStockParentLinkAsync(orgId, productBeingSavedId: 0, tipo, parentId, unitsPerSale);
+
             var newProduct = new Product
             {
                 OrganizationId = orgId,
@@ -78,6 +89,8 @@ namespace APICore.Services.Impls
                 IsAvailable = request.IsAvailable,
                 IsForSale = request.IsForSale,
                 Tipo = tipo,
+                StockParentProductId = parentId,
+                StockUnitsConsumedPerSaleUnit = unitsPerSale,
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
@@ -218,6 +231,17 @@ namespace APICore.Services.Impls
             if (request.Tipo != null && Enum.TryParse<ProductType>(request.Tipo, true, out var parsedTipo))
                 tipo = parsedTipo;
 
+            var (resolvedParentId, resolvedUnits) = ResolveStockParentFromUpdateRequest(request, oldProduct);
+            var addingParentLink = !oldProduct.StockParentProductId.HasValue && resolvedParentId.HasValue;
+            if (addingParentLink)
+            {
+                var raw = await GetRawInventorySumAcrossLocationsAsync(oldProduct.Id);
+                if (raw > 0)
+                    throw new ProductChildHasOwnInventoryBadRequestException(_localizer);
+            }
+
+            await ValidateStockParentLinkAsync(oldProduct.OrganizationId, oldProduct.Id, tipo, resolvedParentId, resolvedUnits);
+
             var updatedProduct = new Product
             {
                 Id = oldProduct.Id,
@@ -235,6 +259,8 @@ namespace APICore.Services.Impls
                 IsForSale = request.IsForSale ?? oldProduct.IsForSale,
                 IsDeleted = oldProduct.IsDeleted,
                 Tipo = tipo,
+                StockParentProductId = resolvedParentId,
+                StockUnitsConsumedPerSaleUnit = resolvedUnits,
             };
 
             await _uow.ProductRepository.UpdateAsync(updatedProduct, oldProduct.Id);
@@ -297,24 +323,151 @@ namespace APICore.Services.Impls
 
         public async Task<decimal> GetTotalStockForProductAsync(int productId)
         {
-            var inventories = await _uow.InventoryRepository
-                .FindBy(i => i.ProductId == productId)
-                .ToListAsync();
-            return inventories.Sum(i => i.CurrentStock);
+            var product = await _context.Products.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
+            if (product == null)
+                return 0;
+
+            var decimals = _inventorySettings.RoundingDecimals;
+            if (ProductStockResolution.UsesParentStock(product))
+            {
+                var parentSum = await GetRawInventorySumAcrossLocationsAsync(product.StockParentProductId!.Value);
+                return ProductStockResolution.GetSaleUnitsFromParentStock(
+                    parentSum,
+                    product.StockUnitsConsumedPerSaleUnit!.Value,
+                    decimals);
+            }
+
+            return await GetRawInventorySumAcrossLocationsAsync(productId);
         }
 
         public async Task<Dictionary<int, decimal>> GetTotalStockByProductIdsAsync(IEnumerable<int> productIds)
         {
-            var ids = productIds?.ToList() ?? new List<int>();
+            var ids = productIds?.Distinct().ToList() ?? new List<int>();
             if (ids.Count == 0)
                 return new Dictionary<int, decimal>();
 
-            var inventories = await _uow.InventoryRepository
-                .FindBy(i => ids.Contains(i.ProductId))
+            var products = await _context.Products.AsNoTracking()
+                .Where(p => ids.Contains(p.Id))
+                .Select(p => new { p.Id, p.StockParentProductId, p.StockUnitsConsumedPerSaleUnit })
                 .ToListAsync();
-            return inventories
+
+            var parentIds = products
+                .Where(p => p.StockParentProductId.HasValue)
+                .Select(p => p.StockParentProductId!.Value)
+                .Distinct()
+                .ToList();
+
+            var allIdsForInv = ids.Union(parentIds).Distinct().ToList();
+            var sums = await _context.Inventories
+                .Where(i => allIdsForInv.Contains(i.ProductId))
                 .GroupBy(i => i.ProductId)
-                .ToDictionary(g => g.Key, g => g.Sum(i => i.CurrentStock));
+                .Select(g => new { Key = g.Key, Sum = g.Sum(x => x.CurrentStock) })
+                .ToListAsync();
+            var sumByPid = sums.ToDictionary(x => x.Key, x => x.Sum);
+
+            var decimals = _inventorySettings.RoundingDecimals;
+            var result = new Dictionary<int, decimal>();
+            foreach (var id in ids)
+            {
+                var meta = products.FirstOrDefault(p => p.Id == id);
+                if (meta == null)
+                {
+                    result[id] = 0;
+                    continue;
+                }
+
+                if (meta.StockParentProductId is int ppid
+                    && meta.StockUnitsConsumedPerSaleUnit is decimal f
+                    && f > 0)
+                {
+                    var parentSum = sumByPid.TryGetValue(ppid, out var ps) ? ps : 0;
+                    result[id] = ProductStockResolution.GetSaleUnitsFromParentStock(parentSum, f, decimals);
+                }
+                else
+                {
+                    result[id] = sumByPid.TryGetValue(id, out var s) ? s : 0;
+                }
+            }
+
+            return result;
+        }
+
+        private async Task<decimal> GetRawInventorySumAcrossLocationsAsync(int productId)
+        {
+            return await _context.Inventories
+                .Where(i => i.ProductId == productId)
+                .SumAsync(i => (decimal?)i.CurrentStock) ?? 0m;
+        }
+
+        private static decimal? NormalizeStockUnitsFromRequest(decimal? stockUnitsConsumedPerSaleUnit, decimal? saleUnitsPerParentStockUnit)
+        {
+            if (stockUnitsConsumedPerSaleUnit.HasValue && saleUnitsPerParentStockUnit.HasValue)
+                return null; // inválido: no permitir doble fuente
+
+            if (saleUnitsPerParentStockUnit.HasValue)
+            {
+                if (saleUnitsPerParentStockUnit.Value <= 0)
+                    return saleUnitsPerParentStockUnit; // se validará como inválido luego
+                return 1m / saleUnitsPerParentStockUnit.Value;
+            }
+
+            return stockUnitsConsumedPerSaleUnit;
+        }
+
+        private static (int? ParentId, decimal? UnitsPerSale) ResolveStockParentFromCreateRequest(CreateProductRequest request)
+        {
+            var hasP = request.StockParentProductId.HasValue;
+            var normalizedUnits = NormalizeStockUnitsFromRequest(request.StockUnitsConsumedPerSaleUnit, request.SaleUnitsPerParentStockUnit);
+            var hasU = normalizedUnits.HasValue;
+            if (!hasP && !hasU)
+                return (null, null);
+            return (request.StockParentProductId, normalizedUnits);
+        }
+
+        private static (int? ParentId, decimal? UnitsPerSale) ResolveStockParentFromUpdateRequest(UpdateProductRequest request, Product oldProduct)
+        {
+            if (request.ClearStockParentLink == true)
+                return (null, null);
+            var pid = request.StockParentProductId ?? oldProduct.StockParentProductId;
+            var normalizedUnits = NormalizeStockUnitsFromRequest(request.StockUnitsConsumedPerSaleUnit, request.SaleUnitsPerParentStockUnit);
+            var u = normalizedUnits ?? oldProduct.StockUnitsConsumedPerSaleUnit;
+            return (pid, u);
+        }
+
+        private async Task ValidateStockParentLinkAsync(
+            int organizationId,
+            int productBeingSavedId,
+            ProductType tipo,
+            int? parentProductId,
+            decimal? unitsPerSale)
+        {
+            var hasParent = parentProductId.HasValue;
+            var hasUnits = unitsPerSale.HasValue;
+            if (!hasParent && !hasUnits)
+                return;
+            if (hasParent != hasUnits)
+                throw new ProductStockParentInvalidBadRequestException(_localizer);
+            if (unitsPerSale == null)
+                throw new ProductStockParentInvalidBadRequestException(_localizer);
+            if (tipo != ProductType.inventariable)
+                throw new ProductStockParentInvalidBadRequestException(_localizer);
+            if (!unitsPerSale.HasValue || unitsPerSale.Value <= 0)
+                throw new ProductStockParentInvalidBadRequestException(_localizer);
+            if (!parentProductId.HasValue)
+                throw new ProductStockParentInvalidBadRequestException(_localizer);
+            if (productBeingSavedId > 0 && parentProductId.Value == productBeingSavedId)
+                throw new ProductStockParentInvalidBadRequestException(_localizer);
+
+            var parent = await _context.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == parentProductId.Value && !p.IsDeleted);
+            if (parent == null || parent.OrganizationId != organizationId)
+                throw new ProductNotFoundException(_localizer);
+            if (parent.Tipo != ProductType.inventariable)
+                throw new ProductStockParentInvalidBadRequestException(_localizer);
+            if (parent.StockParentProductId.HasValue)
+                throw new ProductStockParentInvalidBadRequestException(_localizer);
         }
 
         public async Task<IReadOnlyList<ProductImage>> GetProductImagesOrderedAsync(int productId, bool ignoreQueryFilters = false)

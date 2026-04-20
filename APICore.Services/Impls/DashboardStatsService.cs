@@ -470,8 +470,8 @@ namespace APICore.Services.Impls
 
         public async Task<SupplierStatsResponse> GetSupplierStatsAsync(DateTime? from, DateTime? to)
         {
-            var totalSuppliers = await _uow.SupplierRepository.GetAll().CountAsync();
-            var movements = _uow.InventoryMovementRepository.GetAll().Where(m => m.SupplierId != null);
+            var totalSuppliers = await _uow.ContactRepository.GetAll().CountAsync(c => c.IsSupplier);
+            var movements = _uow.InventoryMovementRepository.GetAll().Where(m => m.SupplierContactId != null);
             var activeOrders = await movements.CountAsync();
             return new SupplierStatsResponse
             {
@@ -499,15 +499,15 @@ namespace APICore.Services.Impls
         public async Task<ChartDonutResponse> GetSupplierCategoryDistributionAsync()
         {
             var byCategory = await _uow.InventoryMovementRepository.GetAll()
-                .Where(m => m.SupplierId != null)
-                .GroupBy(m => m.SupplierId)
-                .Select(g => new { SupplierId = g.Key, Count = g.Count() })
+                .Where(m => m.SupplierContactId != null)
+                .GroupBy(m => m.SupplierContactId)
+                .Select(g => new { SupplierContactId = g.Key, Count = g.Count() })
                 .ToListAsync();
             var data = new List<ChartDonutItemResponse>();
             foreach (var item in byCategory.Take(5))
             {
-                if (item.SupplierId == null) continue;
-                var s = await _uow.SupplierRepository.FirstOrDefaultAsync(x => x.Id == item.SupplierId.Value);
+                if (item.SupplierContactId == null) continue;
+                var s = await _uow.ContactRepository.FirstOrDefaultAsync(x => x.Id == item.SupplierContactId.Value);
                 data.Add(new ChartDonutItemResponse { Name = s?.Name ?? "Proveedor", Value = item.Count });
             }
             return new ChartDonutResponse { Data = data };

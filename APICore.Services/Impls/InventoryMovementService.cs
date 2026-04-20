@@ -47,6 +47,9 @@ namespace APICore.Services.Impls
             if (product == null)
                 throw new ProductNotFoundException(_localizer);
 
+            if (ProductStockResolution.UsesParentStock(product))
+                throw new ProductInventoryUsesParentStockBadRequestException(_localizer);
+
             var isElaborado = product.Tipo == ProductType.elaborado;
 
             var location = await _uow.LocationRepository.FirstOrDefaultAsync(l => l.Id == effectiveLocationId);
@@ -58,11 +61,13 @@ namespace APICore.Services.Impls
 
             var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
 
-            if (request.SupplierId.HasValue)
+            if (request.SupplierContactId.HasValue)
             {
-                var supplier = await _uow.SupplierRepository.FirstOrDefaultAsync(s => s.Id == request.SupplierId.Value);
-                if (supplier == null)
+                var supplierContact = await _uow.ContactRepository.FirstOrDefaultAsync(c => c.Id == request.SupplierContactId.Value);
+                if (supplierContact == null)
                     throw new SupplierNotFoundException(_localizer);
+                if (!supplierContact.IsSupplier)
+                    throw new ContactNotSupplierForMovementBadRequestException(_localizer);
             }
 
             var decimals = _inventorySettings.RoundingDecimals;
@@ -148,7 +153,7 @@ namespace APICore.Services.Impls
                 NewStock = newStock,
                 UnitCost = null,
                 UnitPrice = null,
-                SupplierId = request.SupplierId,
+                SupplierContactId = request.SupplierContactId,
                 ReferenceDocument = request.ReferenceDocument,
                 UserId = userId,
                 CreatedAt = DateTime.UtcNow,

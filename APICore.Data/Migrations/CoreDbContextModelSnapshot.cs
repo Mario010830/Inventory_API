@@ -132,6 +132,18 @@ namespace APICore.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsCustomer")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSupplier")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LeadConvertedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LeadStatus")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -233,6 +245,45 @@ namespace APICore.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("CurrencyDenominations");
+                });
+
+            modelBuilder.Entity("APICore.Data.Entities.CustomerLoyaltyAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ContactId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastPurchaseAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("LifetimeOrders")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PointsBalance")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactId");
+
+                    b.HasIndex("OrganizationId", "ContactId")
+                        .IsUnique();
+
+                    b.ToTable("CustomerLoyaltyAccounts");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.DailySummary", b =>
@@ -423,7 +474,7 @@ namespace APICore.Data.Migrations
                     b.Property<int?>("SaleOrderId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("SupplierId")
+                    b.Property<int?>("SupplierContactId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Type")
@@ -447,70 +498,9 @@ namespace APICore.Data.Migrations
 
                     b.HasIndex("SaleOrderId");
 
-                    b.HasIndex("SupplierId");
+                    b.HasIndex("SupplierContactId");
 
                     b.ToTable("InventoryMovements");
-                });
-
-            modelBuilder.Entity("APICore.Data.Entities.Lead", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("AssignedUserId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Company")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ContactPerson")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ConvertedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("ConvertedToContactId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Email")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<int>("OrganizationId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Origin")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Phone")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssignedUserId");
-
-                    b.HasIndex("ConvertedToContactId");
-
-                    b.HasIndex("OrganizationId");
-
-                    b.ToTable("Leads");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.Loan", b =>
@@ -705,6 +695,80 @@ namespace APICore.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Log");
+                });
+
+            modelBuilder.Entity("APICore.Data.Entities.LoyaltyEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ContactId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PointsDelta")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SaleOrderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("SaleOrderId");
+
+                    b.ToTable("LoyaltyEvents");
+                });
+
+            modelBuilder.Entity("APICore.Data.Entities.LoyaltySettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("NotifyEveryNOrders")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PointsPerOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId")
+                        .IsUnique();
+
+                    b.ToTable("LoyaltySettings");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.MetricsEvent", b =>
@@ -980,6 +1044,13 @@ namespace APICore.Data.Migrations
                     b.Property<decimal>("Precio")
                         .HasColumnType("numeric");
 
+                    b.Property<int?>("StockParentProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("StockUnitsConsumedPerSaleUnit")
+                        .HasPrecision(18, 8)
+                        .HasColumnType("numeric(18,8)");
+
                     b.Property<string>("Tipo")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -991,6 +1062,8 @@ namespace APICore.Data.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("OrganizationId");
+
+                    b.HasIndex("StockParentProductId");
 
                     b.ToTable("Products");
                 });
@@ -1607,51 +1680,6 @@ namespace APICore.Data.Migrations
                     b.ToTable("SubscriptionRequests");
                 });
 
-            modelBuilder.Entity("APICore.Data.Entities.Supplier", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Address")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ContactPerson")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Email")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<int>("OrganizationId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Phone")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrganizationId");
-
-                    b.ToTable("Suppliers");
-                });
-
             modelBuilder.Entity("APICore.Data.Entities.Tag", b =>
                 {
                     b.Property<int>("Id")
@@ -1712,6 +1740,9 @@ namespace APICore.Data.Migrations
                     b.Property<int?>("LocationId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("MobileListLayout")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1726,6 +1757,10 @@ namespace APICore.Data.Migrations
 
                     b.Property<int?>("RoleId")
                         .HasColumnType("integer");
+
+                    b.Property<decimal?>("Salary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -1910,6 +1945,25 @@ namespace APICore.Data.Migrations
                     b.Navigation("Currency");
                 });
 
+            modelBuilder.Entity("APICore.Data.Entities.CustomerLoyaltyAccount", b =>
+                {
+                    b.HasOne("APICore.Data.Entities.Contact", "Contact")
+                        .WithMany()
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Contact");
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("APICore.Data.Entities.DailySummary", b =>
                 {
                     b.HasOne("APICore.Data.Entities.Location", "Location")
@@ -1986,9 +2040,10 @@ namespace APICore.Data.Migrations
                         .HasForeignKey("SaleOrderId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("APICore.Data.Entities.Supplier", "Supplier")
-                        .WithMany("InventoryMovements")
-                        .HasForeignKey("SupplierId");
+                    b.HasOne("APICore.Data.Entities.Contact", "SupplierContact")
+                        .WithMany()
+                        .HasForeignKey("SupplierContactId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Location");
 
@@ -1996,30 +2051,7 @@ namespace APICore.Data.Migrations
 
                     b.Navigation("SaleOrder");
 
-                    b.Navigation("Supplier");
-                });
-
-            modelBuilder.Entity("APICore.Data.Entities.Lead", b =>
-                {
-                    b.HasOne("APICore.Data.Entities.User", "AssignedUser")
-                        .WithMany()
-                        .HasForeignKey("AssignedUserId");
-
-                    b.HasOne("APICore.Data.Entities.Contact", "ConvertedToContact")
-                        .WithMany()
-                        .HasForeignKey("ConvertedToContactId");
-
-                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
-                        .WithMany()
-                        .HasForeignKey("OrganizationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("AssignedUser");
-
-                    b.Navigation("ConvertedToContact");
-
-                    b.Navigation("Organization");
+                    b.Navigation("SupplierContact");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.Loan", b =>
@@ -2065,6 +2097,43 @@ namespace APICore.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("BusinessCategory");
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("APICore.Data.Entities.LoyaltyEvent", b =>
+                {
+                    b.HasOne("APICore.Data.Entities.Contact", "Contact")
+                        .WithMany()
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("APICore.Data.Entities.SaleOrder", "SaleOrder")
+                        .WithMany()
+                        .HasForeignKey("SaleOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Contact");
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("SaleOrder");
+                });
+
+            modelBuilder.Entity("APICore.Data.Entities.LoyaltySettings", b =>
+                {
+                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Organization");
                 });
@@ -2142,9 +2211,16 @@ namespace APICore.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("APICore.Data.Entities.Product", "StockParentProduct")
+                        .WithMany("ChildStockProducts")
+                        .HasForeignKey("StockParentProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Category");
 
                     b.Navigation("Organization");
+
+                    b.Navigation("StockParentProduct");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.ProductCategory", b =>
@@ -2436,17 +2512,6 @@ namespace APICore.Data.Migrations
                     b.Navigation("Subscription");
                 });
 
-            modelBuilder.Entity("APICore.Data.Entities.Supplier", b =>
-                {
-                    b.HasOne("APICore.Data.Entities.Organization", "Organization")
-                        .WithMany("Suppliers")
-                        .HasForeignKey("OrganizationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Organization");
-                });
-
             modelBuilder.Entity("APICore.Data.Entities.User", b =>
                 {
                     b.HasOne("APICore.Data.Entities.Location", "Location")
@@ -2543,8 +2608,6 @@ namespace APICore.Data.Migrations
 
                     b.Navigation("Subscriptions");
 
-                    b.Navigation("Suppliers");
-
                     b.Navigation("Users");
                 });
 
@@ -2565,6 +2628,8 @@ namespace APICore.Data.Migrations
 
             modelBuilder.Entity("APICore.Data.Entities.Product", b =>
                 {
+                    b.Navigation("ChildStockProducts");
+
                     b.Navigation("Inventories");
 
                     b.Navigation("InventoryMovements");
@@ -2614,11 +2679,6 @@ namespace APICore.Data.Migrations
             modelBuilder.Entity("APICore.Data.Entities.Subscription", b =>
                 {
                     b.Navigation("Requests");
-                });
-
-            modelBuilder.Entity("APICore.Data.Entities.Supplier", b =>
-                {
-                    b.Navigation("InventoryMovements");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.Tag", b =>

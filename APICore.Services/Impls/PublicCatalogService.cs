@@ -3,6 +3,7 @@ using APICore.Common.DTO.Response;
 using APICore.Data;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
+using APICore.Services;
 using APICore.Services.Utils;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -16,10 +17,12 @@ namespace APICore.Services.Impls
     public class PublicCatalogService : IPublicCatalogService
     {
         private readonly CoreDbContext _context;
+        private readonly IInventorySettings _inventorySettings;
 
-        public PublicCatalogService(CoreDbContext context)
+        public PublicCatalogService(CoreDbContext context, IInventorySettings inventorySettings)
         {
             _context = context;
+            _inventorySettings = inventorySettings ?? throw new ArgumentNullException(nameof(inventorySettings));
         }
 
         public async Task<IEnumerable<PublicLocationResponse>> GetLocationsAsync(
@@ -172,13 +175,31 @@ namespace APICore.Services.Impls
             var businessHours = DeserializeBusinessHours(location.BusinessHoursJson);
             var isOpenNow = CalculateIsOpenNow(businessHours, DateTime.Now);
 
-            // Inventario por ubicación: inventariables solo entran al catálogo con stock > 0.
-            var productIdsAtLocation = await _context.Inventories
+            // Inventario por ubicación: inventariables con stock > 0 en su fila o en el producto padre (venta fraccionada).
+            var productIdsWithPositiveStock = await _context.Inventories
                 .IgnoreQueryFilters()
                 .Where(i => i.LocationId == locationId && i.CurrentStock > 0)
                 .Select(i => i.ProductId)
                 .Distinct()
                 .ToListAsync();
+            var parentIdsWithStock = productIdsWithPositiveStock.ToHashSet();
+
+            var childProductIdsWithParentStock = await _context.Products
+                .IgnoreQueryFilters()
+                .Where(p => p.OrganizationId == location.OrganizationId
+                    && p.IsForSale
+                    && !p.IsDeleted
+                    && p.Tipo == ProductType.inventariable
+                    && p.StockParentProductId != null
+                    && p.StockUnitsConsumedPerSaleUnit != null
+                    && p.StockUnitsConsumedPerSaleUnit > 0
+                    && parentIdsWithStock.Contains(p.StockParentProductId!.Value))
+                .Select(p => p.Id)
+                .ToListAsync();
+
+            var inventariableIdsAvailable = parentIdsWithStock
+                .Union(childProductIdsWithParentStock)
+                .ToHashSet();
 
             var elaboradoOfferProductIds = await _context.ProductLocationOffers
                 .IgnoreQueryFilters()
@@ -202,19 +223,34 @@ namespace APICore.Services.Impls
             if (products.Count == 0)
                 return Enumerable.Empty<PublicCatalogItemResponse>();
 
+            var invDecimals = _inventorySettings.RoundingDecimals;
             var inventories = await _context.Inventories
                 .IgnoreQueryFilters()
-                .Where(i => i.LocationId == locationId && productIdsAtLocation.Contains(i.ProductId))
+                .Where(i => i.LocationId == locationId)
                 .ToDictionaryAsync(i => i.ProductId, i => i.CurrentStock);
 
             var result = products
                 .Where(p =>
-                    (p.Tipo == ProductType.inventariable && productIdsAtLocation.Contains(p.Id))
+                    (p.Tipo == ProductType.inventariable && inventariableIdsAvailable.Contains(p.Id))
                     || (p.Tipo == ProductType.elaborado && elaboradoOfferProductIds.Contains(p.Id)))
                 .Select(p =>
                 {
                     promotions.TryGetValue(p.Id, out var promo);
                     var effectivePrice = promo != null ? CalculatePromotionalPrice(p.Precio, promo) : p.Precio;
+                    decimal stockDisplay = 0;
+                    if (p.Tipo == ProductType.inventariable)
+                    {
+                        if (p.StockParentProductId is int ppid
+                            && p.StockUnitsConsumedPerSaleUnit is decimal f
+                            && f > 0)
+                        {
+                            var parentStock = inventories.TryGetValue(ppid, out var ps) ? ps : 0;
+                            stockDisplay = ProductStockResolution.GetSaleUnitsFromParentStock(parentStock, f, invDecimals);
+                        }
+                        else
+                            stockDisplay = inventories.TryGetValue(p.Id, out var s) ? s : 0;
+                    }
+
                     return new PublicCatalogItemResponse
                     {
                         Id = p.Id,
@@ -233,7 +269,7 @@ namespace APICore.Services.Impls
                         CategoryName = p.Category?.Name,
                         CategoryColor = p.Category?.Color,
                         Tipo = p.Tipo.ToString(),
-                        StockAtLocation = inventories.TryGetValue(p.Id, out var stock) ? stock : 0,
+                        StockAtLocation = stockDisplay,
                         IsOpenNow = isOpenNow,
                         Tags = p.ProductTags?.Select(pt => pt.Tag).Where(t => t != null).Select(t => new TagDto { Id = t!.Id, Name = t.Name, Slug = t.Slug, Color = t.Color }).ToList() ?? new List<TagDto>(),
                     };
@@ -366,6 +402,57 @@ namespace APICore.Services.Impls
                         CategoryColor = p.Category?.Color,
                         Tipo = p.Tipo.ToString(),
                         StockAtLocation = stock,
+                        IsOpenNow = li.IsOpenNow,
+                        LocationId = loc.Id,
+                        LocationName = loc.Name,
+                        Tags = p.ProductTags?.Select(pt => pt.Tag).Where(t => t != null).Select(t => new TagDto { Id = t!.Id, Name = t.Name, Slug = t.Slug, Color = t.Color }).ToList() ?? new List<TagDto>(),
+                    });
+                }
+
+                // Inventariables que solo consumen stock del padre (sin fila de inventario propia en esta tienda).
+                var decimalsAll = _inventorySettings.RoundingDecimals;
+                var idsFromDirectStock = productIdsAtLoc.ToHashSet();
+                foreach (var p in products.Values.Where(x =>
+                    x.OrganizationId == loc.OrganizationId
+                    && x.Tipo == ProductType.inventariable
+                    && x.StockParentProductId.HasValue
+                    && x.StockUnitsConsumedPerSaleUnit is > 0
+                    && !idsFromDirectStock.Contains(x.Id)))
+                {
+                    if (!inventoryLookup.TryGetValue((p.StockParentProductId!.Value, loc.Id), out var parentStock) || parentStock <= 0)
+                        continue;
+
+                    var stockDisplay = ProductStockResolution.GetSaleUnitsFromParentStock(
+                        parentStock,
+                        p.StockUnitsConsumedPerSaleUnit!.Value,
+                        decimalsAll);
+
+                    Promotion? promoCh = null;
+                    if (promotions.TryGetValue(p.Id, out var promosByOrgCh) && promosByOrgCh.TryGetValue(loc.OrganizationId, out var scopedPromoCh))
+                    {
+                        promoCh = scopedPromoCh;
+                    }
+                    var effectivePriceCh = promoCh != null ? CalculatePromotionalPrice(p.Precio, promoCh) : p.Precio;
+
+                    allItems.Add(new PublicCatalogItemResponse
+                    {
+                        Id = p.Id,
+                        Code = p.Code,
+                        Name = p.Name,
+                        Description = p.Description,
+                        ImagenUrl = ProductPrimaryImageUrlResolver.Resolve(p),
+                        Images = MapCatalogImages(p),
+                        Precio = effectivePriceCh,
+                        OriginalPrecio = p.Precio,
+                        HasActivePromotion = promoCh != null,
+                        PromotionType = promoCh?.Type.ToString(),
+                        PromotionValue = promoCh?.Value,
+                        PromotionId = promoCh?.Id,
+                        CategoryId = p.CategoryId,
+                        CategoryName = p.Category?.Name,
+                        CategoryColor = p.Category?.Color,
+                        Tipo = p.Tipo.ToString(),
+                        StockAtLocation = stockDisplay,
                         IsOpenNow = li.IsOpenNow,
                         LocationId = loc.Id,
                         LocationName = loc.Name,

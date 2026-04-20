@@ -8,9 +8,10 @@ namespace APICore.Services
     public interface IContactService
     {
         Task<Contact> CreateContact(CreateContactRequest request);
+        Task<Contact> CreateCounterparty(CreateCounterpartyRequest request);
         Task DeleteContact(int id);
         Task UpdateContact(int id, UpdateContactRequest request);
         Task<Contact> GetContact(int id);
-        Task<PaginatedList<Contact>> GetAllContacts(int? page, int? perPage, string sortOrder = null);
+        Task<PaginatedList<Contact>> GetAllContacts(int? page, int? perPage, string sortOrder = null, string? role = null);
     }
 }

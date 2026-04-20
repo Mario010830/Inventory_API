@@ -2,6 +2,7 @@
 using APICore.Data;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
+using APICore.Services;
 using APICore.Services.Impls;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -14,6 +15,18 @@ namespace APICore.Tests.Unit.PublicCatalog
 {
     public class PublicCatalogServiceTests
     {
+        private sealed class TestInventorySettings : IInventorySettings
+        {
+            public int RoundingDecimals => 4;
+            public int PriceRoundingDecimals => 2;
+            public bool AllowNegativeStock => false;
+            public string DefaultUnitOfMeasure => "unit";
+            public decimal DefaultMinimumStock => 0;
+            public void InvalidateCache() { }
+        }
+
+        private static readonly TestInventorySettings InvSettings = new();
+
         private static CoreDbContext CreateContext()
         {
             var options = new DbContextOptionsBuilder<CoreDbContext>()
@@ -129,7 +142,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = (await svc.GetLocationsAsync()).ToList();
 
@@ -150,7 +163,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = (await svc.GetLocationsAsync()).ToList();
 
@@ -164,7 +177,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = (await svc.GetLocationsAsync()).ToList();
 
@@ -183,7 +196,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = (await svc.GetLocationsAsync(sortBy: "productCount")).ToList();
 
@@ -197,7 +210,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = (await svc.GetLocationsAsync(sortBy: "newest")).ToList();
 
@@ -211,7 +224,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = (await svc.GetLocationsAsync(sortBy: "name", sortDir: "asc")).ToList();
 
@@ -229,7 +242,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = (await svc.GetLocationsAsync(categoryId: 1)).ToList();
 
@@ -242,7 +255,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             // Tienda A is at (22.38, -80.15), search near it with 5km radius
             var result = (await svc.GetLocationsAsync(lat: 22.38, lng: -80.15, radiusKm: 5)).ToList();
@@ -256,7 +269,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             // Wide radius should include A and B (both have coords)
             var result = (await svc.GetLocationsAsync(lat: 22.40, lng: -80.05, radiusKm: 50)).ToList();
@@ -269,7 +282,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             // Even with huge radius, Tienda C has no coords → excluded
             var result = (await svc.GetLocationsAsync(lat: 22.40, lng: -80.05, radiusKm: 1000)).ToList();
@@ -282,7 +295,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var items = (await svc.GetCatalogByLocationAsync(1)).ToList();
 
@@ -296,7 +309,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = await svc.GetCatalogAllAsync(1, 100);
 
@@ -312,7 +325,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = await svc.GetCatalogAllAsync(1, 50, sortBy: "price", sortDir: "asc");
 
@@ -326,7 +339,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = await svc.GetCatalogAllAsync(1, 50, sortBy: "price", sortDir: "desc");
 
@@ -340,7 +353,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = await svc.GetCatalogAllAsync(1, 50, sortBy: "promo");
             var items = result.Items.ToList();
@@ -359,7 +372,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = await svc.GetCatalogAllAsync(1, 50, minPrice: 1000, maxPrice: 2000);
 
@@ -375,7 +388,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = await svc.GetCatalogAllAsync(1, 50, inStock: true);
 
@@ -391,7 +404,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var result = await svc.GetCatalogAllAsync(1, 50, hasPromotion: true);
 
@@ -407,7 +420,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var page1 = await svc.GetCatalogAllAsync(1, 2);
             var page2 = await svc.GetCatalogAllAsync(2, 2);
@@ -428,7 +441,7 @@ namespace APICore.Tests.Unit.PublicCatalog
         {
             using var ctx = CreateContext();
             SeedBase(ctx);
-            var svc = new PublicCatalogService(ctx);
+            var svc = new PublicCatalogService(ctx, InvSettings);
 
             var all = await svc.GetCatalogAllAsync(1, 100);
             var filtered = await svc.GetCatalogAllAsync(1, 100, minPrice: 2000);

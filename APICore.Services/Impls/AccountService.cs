@@ -691,6 +691,30 @@ namespace APICore.Services.Impls
             return user;
         }
 
+        public async Task<User> UpdateMobileListLayoutAsync(UpdateMobileListLayoutRequest request, int userId)
+        {
+            var user = await GetUserByIdIgnoringFiltersAsync(userId);
+            if (user == null)
+                throw new UserNotFoundException(_localizer);
+
+            if (string.IsNullOrWhiteSpace(request.Layout))
+            {
+                user.MobileListLayout = null;
+            }
+            else
+            {
+                var normalized = request.Layout.Trim().ToLowerInvariant();
+                if (normalized != MobileListLayoutValues.Table && normalized != MobileListLayoutValues.Comfortable)
+                    throw new InvalidMobileListLayoutBadRequestException();
+                user.MobileListLayout = normalized;
+            }
+
+            user.ModifiedAt = DateTime.UtcNow;
+            _uow.UserRepository.Update(user);
+            await _uow.CommitAsync();
+            return user;
+        }
+
         public Task<bool> ValidateTokenAsync(string token)
         {
             var isValid = true;

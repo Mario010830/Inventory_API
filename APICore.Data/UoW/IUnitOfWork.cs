@@ -15,14 +15,15 @@ namespace APICore.Data.UoW
         IGenericRepository<ProductCategory> ProductCategoryRepository { get; set; }
         IGenericRepository<Inventory> InventoryRepository { get; set; }
         IGenericRepository<InventoryMovement> InventoryMovementRepository { get; set; }
-        IGenericRepository<Supplier> SupplierRepository { get; set; }
         IGenericRepository<Organization> OrganizationRepository { get; set; }
         IGenericRepository<Location> LocationRepository { get; set; }
         IGenericRepository<Role> RoleRepository { get; set; }
         IGenericRepository<Permission> PermissionRepository { get; set; }
         IGenericRepository<RolePermission> RolePermissionRepository { get; set; }
         IGenericRepository<Contact> ContactRepository { get; set; }
-        IGenericRepository<Lead> LeadRepository { get; set; }
+        IGenericRepository<CustomerLoyaltyAccount> CustomerLoyaltyAccountRepository { get; set; }
+        IGenericRepository<LoyaltyEvent> LoyaltyEventRepository { get; set; }
+        IGenericRepository<LoyaltySettings> LoyaltySettingsRepository { get; set; }
         IGenericRepository<SaleOrder> SaleOrderRepository { get; set; }
         IGenericRepository<SaleOrderItem> SaleOrderItemRepository { get; set; }
         IGenericRepository<SaleReturn> SaleReturnRepository { get; set; }

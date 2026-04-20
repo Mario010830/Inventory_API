@@ -17,6 +17,12 @@ namespace APICore.Common.DTO.Response
         public int? LocationId { get; set; }
         public int? OrganizationId { get; set; }
         public int? RoleId { get; set; }
+
+        /// <summary>"table", "comfortable" o null si aún no eligió (mostrar popup en móvil).</summary>
+        public string? MobileListLayout { get; set; }
+
+        public decimal? Salary { get; set; }
+
         public LocationResponse? Location { get; set; }
         public OrganizationResponse? Organization { get; set; }
     }

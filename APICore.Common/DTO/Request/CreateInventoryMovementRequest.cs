@@ -7,7 +7,7 @@ namespace APICore.Common.DTO.Request
         public int Type { get; set; }
         public decimal Quantity { get; set; }
         public string? Reason { get; set; }
-        public int? SupplierId { get; set; }
+        public int? SupplierContactId { get; set; }
         public string? ReferenceDocument { get; set; }
     }
 }

@@ -28,6 +28,7 @@ namespace APICore.Services.Impls
         private readonly IInventorySettings _inventorySettings;
         private readonly IPromotionService _promotionService;
         private readonly ICatalogMetricsTrackingService _catalogMetricsTrackingService;
+        private readonly ILoyaltyService _loyaltyService;
 
         public SaleOrderService(
             IUnitOfWork uow,
@@ -35,7 +36,8 @@ namespace APICore.Services.Impls
             IStringLocalizer<ISaleOrderService> localizer,
             IInventorySettings inventorySettings,
             IPromotionService promotionService,
-            ICatalogMetricsTrackingService catalogMetricsTrackingService)
+            ICatalogMetricsTrackingService catalogMetricsTrackingService,
+            ILoyaltyService loyaltyService)
         {
             _uow = uow;
             _context = context;
@@ -43,6 +45,7 @@ namespace APICore.Services.Impls
             _inventorySettings = inventorySettings;
             _promotionService = promotionService;
             _catalogMetricsTrackingService = catalogMetricsTrackingService ?? throw new ArgumentNullException(nameof(catalogMetricsTrackingService));
+            _loyaltyService = loyaltyService ?? throw new ArgumentNullException(nameof(loyaltyService));
         }
 
         public async Task<SaleOrder> CreateSaleOrder(CreateSaleOrderRequest request, int userId)
@@ -62,6 +65,10 @@ namespace APICore.Services.Impls
                 var contact = await _uow.ContactRepository.FirstOrDefaultAsync(c => c.Id == request.ContactId.Value);
                 if (contact == null)
                     throw new ContactNotFoundException(_localizer);
+                if (contact.OrganizationId != orgId)
+                    throw new ContactNotFoundException(_localizer);
+                if (!contact.IsCustomer)
+                    throw new ContactNotCustomerForSaleBadRequestException(_localizer);
             }
 
             var decimals = _inventorySettings.RoundingDecimals;
@@ -150,6 +157,9 @@ namespace APICore.Services.Impls
             if (order.Status == SaleOrderStatus.cancelled)
                 throw new SaleOrderAlreadyCancelledBadRequestException(_localizer);
 
+            if (order.Status == SaleOrderStatus.returned)
+                throw new SaleOrderFullyReturnedBadRequestException(_localizer);
+
             if (order.Status == SaleOrderStatus.confirmed)
                 return order;
 
@@ -162,6 +172,7 @@ namespace APICore.Services.Impls
 
             var allowNegative = _inventorySettings.AllowNegativeStock;
             var decimals = _inventorySettings.RoundingDecimals;
+            var priceDecimals = _inventorySettings.PriceRoundingDecimals;
 
             foreach (var item in order.Items)
             {
@@ -174,13 +185,15 @@ namespace APICore.Services.Impls
                     continue;
                 }
 
+                var (stockProductId, stockQty) = ProductStockResolution.GetDeductionUnits(item.Product!, item.Quantity, decimals);
+
                 var inventory = await _uow.InventoryRepository.FirstOrDefaultAsync(
-                    i => i.ProductId == item.ProductId && i.LocationId == order.LocationId);
+                    i => i.ProductId == stockProductId && i.LocationId == order.LocationId);
 
                 if (inventory == null && !allowNegative)
                     throw new InsufficientStockBadRequestException(_localizer);
 
-                if (inventory != null && !allowNegative && inventory.CurrentStock < item.Quantity)
+                if (inventory != null && !allowNegative && inventory.CurrentStock < stockQty)
                     throw new InsufficientStockBadRequestException(_localizer);
             }
 
@@ -190,17 +203,19 @@ namespace APICore.Services.Impls
                 if (item.Product?.Tipo == ProductType.elaborado)
                     continue;
 
+                var (stockProductId, stockQty) = ProductStockResolution.GetDeductionUnits(item.Product!, item.Quantity, decimals);
+
                 var inventory = await _uow.InventoryRepository.FirstOrDefaultAsync(
-                    i => i.ProductId == item.ProductId && i.LocationId == order.LocationId);
+                    i => i.ProductId == stockProductId && i.LocationId == order.LocationId);
 
                 decimal previousStock = inventory?.CurrentStock ?? 0;
-                decimal newStock = DecimalRoundingHelper.RoundQuantity(previousStock - item.Quantity, decimals);
+                decimal newStock = DecimalRoundingHelper.RoundQuantity(previousStock - stockQty, decimals);
 
                 if (inventory == null)
                 {
                     inventory = new Inventory
                     {
-                        ProductId = item.ProductId,
+                        ProductId = stockProductId,
                         LocationId = order.LocationId,
                         CurrentStock = newStock,
                         MinimumStock = 0,
@@ -214,16 +229,20 @@ namespace APICore.Services.Impls
                     _uow.InventoryRepository.Update(inventory);
                 }
 
+                var movementUnitCost = item.UnitCost;
+                if (ProductStockResolution.UsesParentStock(item.Product!) && item.Product!.StockParentProduct != null)
+                    movementUnitCost = Math.Round(item.Product.StockParentProduct.Costo, priceDecimals);
+
                 var movement = new InventoryMovement
                 {
-                    ProductId = item.ProductId,
+                    ProductId = stockProductId,
                     LocationId = order.LocationId,
                     Type = InventoryMovementType.exit,
                     Reason = InventoryMovementReason.Venta.ToString(),
-                    Quantity = item.Quantity,
+                    Quantity = stockQty,
                     PreviousStock = previousStock,
                     NewStock = newStock,
-                    UnitCost = item.UnitCost,
+                    UnitCost = movementUnitCost,
                     UnitPrice = item.UnitPrice,
                     SaleOrderId = order.Id,
                     ReferenceDocument = order.Folio,
@@ -235,6 +254,7 @@ namespace APICore.Services.Impls
             order.Status = SaleOrderStatus.confirmed;
             _uow.SaleOrderRepository.Update(order);
             _catalogMetricsTrackingService.StagePurchaseCompletedEvents(order);
+            await _loyaltyService.ProcessConfirmedSaleOrderAsync(order);
             await _uow.CommitAsync();
 
             return await LoadFullOrder(id);
@@ -249,27 +269,33 @@ namespace APICore.Services.Impls
             if (order.Status == SaleOrderStatus.cancelled)
                 throw new SaleOrderAlreadyCancelledBadRequestException(_localizer);
 
+            if (order.Status == SaleOrderStatus.returned)
+                throw new SaleOrderFullyReturnedBadRequestException(_localizer);
+
             // Si ya estaba confirmada, hay que revertir el inventario
             if (order.Status == SaleOrderStatus.confirmed)
             {
                 var decimals = _inventorySettings.RoundingDecimals;
+                var priceDecimals = _inventorySettings.PriceRoundingDecimals;
 
                 foreach (var item in order.Items)
                 {
                     if (item.Product?.Tipo == ProductType.elaborado)
                         continue;
 
+                    var (stockProductId, stockQty) = ProductStockResolution.GetDeductionUnits(item.Product!, item.Quantity, decimals);
+
                     var inventory = await _uow.InventoryRepository.FirstOrDefaultAsync(
-                        i => i.ProductId == item.ProductId && i.LocationId == order.LocationId);
+                        i => i.ProductId == stockProductId && i.LocationId == order.LocationId);
 
                     decimal previousStock = inventory?.CurrentStock ?? 0;
-                    decimal newStock = DecimalRoundingHelper.RoundQuantity(previousStock + item.Quantity, decimals);
+                    decimal newStock = DecimalRoundingHelper.RoundQuantity(previousStock + stockQty, decimals);
 
                     if (inventory == null)
                     {
                         inventory = new Inventory
                         {
-                            ProductId = item.ProductId,
+                            ProductId = stockProductId,
                             LocationId = order.LocationId,
                             CurrentStock = newStock,
                             MinimumStock = 0,
@@ -283,17 +309,21 @@ namespace APICore.Services.Impls
                         _uow.InventoryRepository.Update(inventory);
                     }
 
+                    var movementUnitCost = item.UnitCost;
+                    if (ProductStockResolution.UsesParentStock(item.Product!) && item.Product!.StockParentProduct != null)
+                        movementUnitCost = Math.Round(item.Product.StockParentProduct.Costo, priceDecimals);
+
                     // Movimiento de reversión
                     var reversal = new InventoryMovement
                     {
-                        ProductId = item.ProductId,
+                        ProductId = stockProductId,
                         LocationId = order.LocationId,
                         Type = InventoryMovementType.entry,
                         Reason = InventoryMovementReason.Correccion.ToString(),
-                        Quantity = item.Quantity,
+                        Quantity = stockQty,
                         PreviousStock = previousStock,
                         NewStock = newStock,
-                        UnitCost = item.UnitCost,
+                        UnitCost = movementUnitCost,
                         UnitPrice = item.UnitPrice,
                         SaleOrderId = order.Id,
                         ReferenceDocument = $"CANCEL-{order.Folio}",
@@ -324,6 +354,10 @@ namespace APICore.Services.Impls
                 var contact = await _uow.ContactRepository.FirstOrDefaultAsync(c => c.Id == request.ContactId.Value);
                 if (contact == null)
                     throw new ContactNotFoundException(_localizer);
+                if (contact.OrganizationId != order.OrganizationId)
+                    throw new ContactNotFoundException(_localizer);
+                if (!contact.IsCustomer)
+                    throw new ContactNotCustomerForSaleBadRequestException(_localizer);
                 order.ContactId = request.ContactId.Value;
             }
 
@@ -417,6 +451,7 @@ namespace APICore.Services.Impls
             return await _context.SaleOrders
                 .Include(s => s.Items)
                     .ThenInclude(i => i.Product)
+                        .ThenInclude(p => p!.StockParentProduct)
                 .Include(s => s.Payments)
                     .ThenInclude(p => p.PaymentMethod)
                 .Include(s => s.Payments)

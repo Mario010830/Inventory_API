@@ -80,6 +80,7 @@ namespace APICore.Services.Impls
                 LocationId = user.LocationId,
                 OrganizationId = organizationIdToAssign.Value,
                 RoleId = user.RoleId,
+                Salary = user.Salary,
             };
 
             await _uow.UserRepository.AddAsync(new_user);
@@ -174,6 +175,10 @@ namespace APICore.Services.Impls
                 LocationId = user.LocationId ?? old_user.LocationId,
                 OrganizationId = user.OrganizationId ?? old_user.OrganizationId,
                 RoleId = newRoleId,
+                LastLoggedIn = old_user.LastLoggedIn,
+                MobileListLayout = old_user.MobileListLayout,
+                GoogleId = old_user.GoogleId,
+                Salary = user.Salary ?? old_user.Salary,
             };
 
             await _uow.UserRepository.UpdateAsync(new_user, old_user.Id);

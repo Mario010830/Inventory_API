@@ -8,7 +8,10 @@ namespace APICore.Common.DTO.Request
         [Required]
         public int SaleOrderId { get; set; }
 
+        /// <summary>Motivo libre (ej. error de cobro, cambio de opinión, producto defectuoso).</summary>
         public string? Reason { get; set; }
+
+        /// <summary>Notas adicionales. Una devolución no implica necesariamente producto defectuoso.</summary>
         public string? Notes { get; set; }
 
         [Required]

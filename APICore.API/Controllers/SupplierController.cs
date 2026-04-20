@@ -30,7 +30,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpPost]
-        [RequirePermission(PermissionCodes.SupplierCreate)]
+        [RequirePermission(PermissionCodes.SupplierCreate, PermissionCodes.ContactCreate)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Created)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
         public async Task<IActionResult> CreateSupplier([FromBody] CreateSupplierRequest request)
@@ -41,7 +41,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpGet]
-        [RequirePermission(PermissionCodes.SupplierRead, PermissionCodes.SupplierCreate, PermissionCodes.SupplierUpdate, PermissionCodes.InventoryMovementCreate)]
+        [RequirePermission(PermissionCodes.SupplierRead, PermissionCodes.SupplierCreate, PermissionCodes.SupplierUpdate, PermissionCodes.InventoryMovementCreate, PermissionCodes.ContactRead)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
         public async Task<IActionResult> GetSuppliers(int? page, int? perPage, string sortOrder = null)
@@ -53,7 +53,7 @@ namespace APICore.API.Controllers
 
     
         [HttpGet("id")]
-        [RequirePermission(PermissionCodes.SupplierRead, PermissionCodes.SupplierCreate, PermissionCodes.SupplierUpdate, PermissionCodes.InventoryMovementCreate)]
+        [RequirePermission(PermissionCodes.SupplierRead, PermissionCodes.SupplierCreate, PermissionCodes.SupplierUpdate, PermissionCodes.InventoryMovementCreate, PermissionCodes.ContactRead)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> GetSupplierById(int id)
@@ -64,7 +64,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpPut]
-        [RequirePermission(PermissionCodes.SupplierUpdate)]
+        [RequirePermission(PermissionCodes.SupplierUpdate, PermissionCodes.ContactUpdate)]
         [ProducesResponseType((int)HttpStatusCode.NoContent)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
@@ -75,7 +75,7 @@ namespace APICore.API.Controllers
         }
 
         [HttpDelete]
-        [RequirePermission(PermissionCodes.SupplierDelete)]
+        [RequirePermission(PermissionCodes.SupplierDelete, PermissionCodes.ContactDelete)]
         [ProducesResponseType((int)HttpStatusCode.NoContent)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> DeleteSupplier(int id)

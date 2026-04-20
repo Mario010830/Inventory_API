@@ -21,5 +21,7 @@ namespace APICore.Common.DTO.Request
         public int? OrganizationId { get; set; }
 
         public int? RoleId { get; set; }
+
+        public decimal? Salary { get; set; }
     }
 }

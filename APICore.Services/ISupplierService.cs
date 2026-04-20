@@ -7,10 +7,10 @@ namespace APICore.Services
 {
     public interface ISupplierService
     {
-        Task<Supplier> CreateSupplier(CreateSupplierRequest request);
+        Task<Contact> CreateSupplier(CreateSupplierRequest request);
         Task DeleteSupplier(int id);
         Task UpdateSupplier(int id, UpdateSupplierRequest request);
-        Task<Supplier> GetSupplier(int id);
-        Task<PaginatedList<Supplier>> GetAllSuppliers(int? page, int? perPage, string sortOrder = null);
+        Task<Contact> GetSupplier(int id);
+        Task<PaginatedList<Contact>> GetAllSuppliers(int? page, int? perPage, string sortOrder = null);
     }
 }

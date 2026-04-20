@@ -1,4 +1,5 @@
 using APICore.API.Authorization;
+using APICore.API.Services;
 using APICore.API.Filters;
 using APICore.API.HostedServices;
 using APICore.API.Middleware;
@@ -95,6 +96,8 @@ namespace APICore.API
             services.AddTransient<ILeadService, LeadService>();
             services.AddTransient<ILoanService, LoanService>();
             services.AddTransient<IDashboardStatsService, DashboardStatsService>();
+            services.AddTransient<ILoyaltyThresholdNotifier, LoyaltyThresholdPushNotifier>();
+            services.AddTransient<ILoyaltyService, LoyaltyService>();
             services.AddTransient<ISaleOrderService, SaleOrderService>();
             services.AddTransient<ISaleReturnService, SaleReturnService>();
             services.AddTransient<IPublicCatalogService, PublicCatalogService>();

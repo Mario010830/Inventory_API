@@ -18,6 +18,18 @@ namespace APICore.Tests.Unit.ProductLocationOffers
 {
     public class ProductLocationOffersTests
     {
+        private sealed class TestInventorySettings : IInventorySettings
+        {
+            public int RoundingDecimals => 4;
+            public int PriceRoundingDecimals => 2;
+            public bool AllowNegativeStock => false;
+            public string DefaultUnitOfMeasure => "unit";
+            public decimal DefaultMinimumStock => 0;
+            public void InvalidateCache() { }
+        }
+
+        private static readonly TestInventorySettings InvSettings = new();
+
         private static CoreDbContext CreateContext()
         {
             var options = new DbContextOptionsBuilder<CoreDbContext>()
@@ -106,7 +118,7 @@ namespace APICore.Tests.Unit.ProductLocationOffers
             await using var ctx = CreateContext();
             SeedOrgProducts(ctx);
 
-            var catalog = new PublicCatalogService(ctx);
+            var catalog = new PublicCatalogService(ctx, InvSettings);
             var items = (await catalog.GetCatalogByLocationAsync(1)).ToList();
             Assert.DoesNotContain(items, i => i.Id == 10);
             Assert.Contains(items, i => i.Id == 11);
@@ -128,7 +140,7 @@ namespace APICore.Tests.Unit.ProductLocationOffers
             });
             await ctx.SaveChangesAsync();
 
-            var catalog = new PublicCatalogService(ctx);
+            var catalog = new PublicCatalogService(ctx, InvSettings);
             var items = (await catalog.GetCatalogByLocationAsync(1)).ToList();
             Assert.Contains(items, i => i.Id == 10);
         }
@@ -155,8 +167,9 @@ namespace APICore.Tests.Unit.ProductLocationOffers
             loc.Setup(x => x[It.IsAny<string>()]).Returns((string s) => new LocalizedString(s, s));
 
             var metrics = new Mock<ICatalogMetricsTrackingService>();
+            var loyalty = new Mock<ILoyaltyService>();
 
-            var svc = new SaleOrderService(uow, ctx, loc.Object, inv.Object, promo.Object, metrics.Object);
+            var svc = new SaleOrderService(uow, ctx, loc.Object, inv.Object, promo.Object, metrics.Object, loyalty.Object);
 
             await Assert.ThrowsAsync<ProductNotOfferedAtLocationBadRequestException>(async () =>
                 await svc.CreateSaleOrder(new CreateSaleOrderRequest
@@ -203,8 +216,9 @@ namespace APICore.Tests.Unit.ProductLocationOffers
             loc.Setup(x => x[It.IsAny<string>()]).Returns((string s) => new LocalizedString(s, s));
 
             var metrics = new Mock<ICatalogMetricsTrackingService>();
+            var loyalty = new Mock<ILoyaltyService>();
 
-            var svc = new SaleOrderService(uow, ctx, loc.Object, inv.Object, promo.Object, metrics.Object);
+            var svc = new SaleOrderService(uow, ctx, loc.Object, inv.Object, promo.Object, metrics.Object, loyalty.Object);
 
             var order = await svc.CreateSaleOrder(new CreateSaleOrderRequest
             {

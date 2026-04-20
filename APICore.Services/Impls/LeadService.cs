@@ -26,54 +26,32 @@ namespace APICore.Services.Impls
 
         public async Task<Contact> ConvertToContact(int leadId)
         {
-            var lead = await _uow.LeadRepository.FirstOrDefaultAsync(l => l.Id == leadId);
+            var lead = await _uow.ContactRepository.FirstOrDefaultAsync(c =>
+                c.Id == leadId && c.LeadStatus != null && !c.LeadConvertedAt.HasValue);
             if (lead == null)
                 throw new LeadNotFoundException(_localizer);
-
-            if (lead.ConvertedToContactId.HasValue)
-                throw new LeadAlreadyConvertedBadRequestException(_localizer);
 
             var orgId = _context.CurrentOrganizationId;
             if (orgId <= 0)
                 throw new UnauthorizedException(_localizer);
 
-            var newContact = new Contact
-            {
-                OrganizationId = orgId,
-                Name = lead.Name,
-                Company = lead.Company,
-                ContactPerson = lead.ContactPerson,
-                Phone = lead.Phone,
-                Email = lead.Email,
-                Address = null,
-                Notes = lead.Notes,
-                Origin = lead.Origin,
-                IsActive = true,
-                AssignedUserId = lead.AssignedUserId,
-                CreatedAt = DateTime.UtcNow,
-                ModifiedAt = DateTime.UtcNow,
-            };
-
-            await _uow.ContactRepository.AddAsync(newContact);
-            await _uow.CommitAsync();
-
-            lead.ConvertedToContactId = newContact.Id;
-            lead.ConvertedAt = DateTime.UtcNow;
-            lead.Status = "Convertido";
+            lead.LeadConvertedAt = DateTime.UtcNow;
+            lead.LeadStatus = null;
+            lead.IsCustomer = true;
             lead.ModifiedAt = DateTime.UtcNow;
-            await _uow.LeadRepository.UpdateAsync(lead, lead.Id);
+            await _uow.ContactRepository.UpdateAsync(lead, lead.Id);
             await _uow.CommitAsync();
 
-            return newContact;
+            return lead;
         }
 
-        public async Task<Lead> CreateLead(CreateLeadRequest request)
+        public async Task<Contact> CreateLead(CreateLeadRequest request)
         {
             var orgId = _context.CurrentOrganizationId;
             if (orgId <= 0)
                 throw new UnauthorizedException(_localizer);
 
-            var newLead = new Lead
+            var contact = new Contact
             {
                 OrganizationId = orgId,
                 Name = request.Name,
@@ -82,43 +60,50 @@ namespace APICore.Services.Impls
                 Phone = request.Phone,
                 Email = request.Email,
                 Origin = request.Origin,
-                Status = request.Status ?? "Nuevo",
                 Notes = request.Notes,
+                Address = null,
+                IsActive = true,
                 AssignedUserId = request.AssignedUserId,
+                IsCustomer = true,
+                IsSupplier = false,
+                LeadStatus = request.Status ?? "Nuevo",
+                LeadConvertedAt = null,
                 CreatedAt = DateTime.UtcNow,
                 ModifiedAt = DateTime.UtcNow,
             };
 
-            await _uow.LeadRepository.AddAsync(newLead);
+            await _uow.ContactRepository.AddAsync(contact);
             await _uow.CommitAsync();
 
-            return newLead;
+            return contact;
         }
 
         public async Task DeleteLead(int id)
         {
-            var lead = await _uow.LeadRepository.FirstOrDefaultAsync(l => l.Id == id);
+            var lead = await _uow.ContactRepository.FirstOrDefaultAsync(c =>
+                c.Id == id && c.LeadStatus != null && !c.LeadConvertedAt.HasValue);
             if (lead == null)
                 throw new LeadNotFoundException(_localizer);
 
-            _uow.LeadRepository.Delete(lead);
+            _uow.ContactRepository.Delete(lead);
             await _uow.CommitAsync();
         }
 
-        public async Task<PaginatedList<Lead>> GetAllLeads(int? page, int? perPage, string? status = null, string sortOrder = null)
+        public async Task<PaginatedList<Contact>> GetAllLeads(int? page, int? perPage, string? status = null, string sortOrder = null)
         {
-            var leads = _uow.LeadRepository.GetAll();
+            var leads = _uow.ContactRepository.GetAll().Where(c => c.LeadStatus != null && !c.LeadConvertedAt.HasValue);
             if (!string.IsNullOrWhiteSpace(status))
-                leads = leads.Where(l => l.Status == status);
+                leads = leads.Where(c => c.LeadStatus == status);
 
             var pageIndex = page ?? 1;
             var perPageIndex = perPage ?? 10;
-            return await PaginatedList<Lead>.CreateAsync(leads, pageIndex, perPageIndex);
+            return await PaginatedList<Contact>.CreateAsync(leads, pageIndex, perPageIndex);
         }
 
-        public async Task<Lead> GetLead(int id)
+        public async Task<Contact> GetLead(int id)
         {
-            var lead = await _uow.LeadRepository.FirstOrDefaultAsync(l => l.Id == id);
+            var lead = await _uow.ContactRepository.FirstOrDefaultAsync(c =>
+                c.Id == id && (c.LeadConvertedAt.HasValue || (c.LeadStatus != null && !c.LeadConvertedAt.HasValue)));
             if (lead == null)
                 throw new LeadNotFoundException(_localizer);
             return lead;
@@ -126,17 +111,18 @@ namespace APICore.Services.Impls
 
         public async Task UpdateLead(int id, UpdateLeadRequest request)
         {
-            var oldLead = await _uow.LeadRepository.FirstOrDefaultAsync(l => l.Id == id);
+            var oldLead = await _uow.ContactRepository.FirstOrDefaultAsync(c =>
+                c.Id == id && (c.LeadConvertedAt.HasValue || (c.LeadStatus != null && !c.LeadConvertedAt.HasValue)));
             if (oldLead == null)
                 throw new LeadNotFoundException(_localizer);
 
-            if (oldLead.ConvertedToContactId.HasValue)
+            if (oldLead.LeadConvertedAt.HasValue)
             {
                 if (request.Status != null && request.Status != "Convertido")
                     throw new LeadAlreadyConvertedBadRequestException(_localizer);
             }
 
-            var updatedLead = new Lead
+            var updatedLead = new Contact
             {
                 Id = oldLead.Id,
                 OrganizationId = oldLead.OrganizationId,
@@ -148,14 +134,17 @@ namespace APICore.Services.Impls
                 Phone = request.Phone ?? oldLead.Phone,
                 Email = request.Email ?? oldLead.Email,
                 Origin = request.Origin ?? oldLead.Origin,
-                Status = request.Status ?? oldLead.Status,
                 Notes = request.Notes ?? oldLead.Notes,
                 AssignedUserId = request.AssignedUserId ?? oldLead.AssignedUserId,
-                ConvertedToContactId = oldLead.ConvertedToContactId,
-                ConvertedAt = oldLead.ConvertedAt,
+                IsActive = oldLead.IsActive,
+                Address = oldLead.Address,
+                IsCustomer = oldLead.IsCustomer,
+                IsSupplier = oldLead.IsSupplier,
+                LeadStatus = request.Status ?? oldLead.LeadStatus,
+                LeadConvertedAt = oldLead.LeadConvertedAt,
             };
 
-            await _uow.LeadRepository.UpdateAsync(updatedLead, oldLead.Id);
+            await _uow.ContactRepository.UpdateAsync(updatedLead, oldLead.Id);
             await _uow.CommitAsync();
         }
     }

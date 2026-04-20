@@ -7,11 +7,11 @@ namespace APICore.Services
 {
     public interface ILeadService
     {
-        Task<Lead> CreateLead(CreateLeadRequest request);
+        Task<Contact> ConvertToContact(int leadId);
+        Task<Contact> CreateLead(CreateLeadRequest request);
         Task DeleteLead(int id);
         Task UpdateLead(int id, UpdateLeadRequest request);
-        Task<Lead> GetLead(int id);
-        Task<PaginatedList<Lead>> GetAllLeads(int? page, int? perPage, string? status = null, string sortOrder = null);
-        Task<Contact> ConvertToContact(int leadId);
+        Task<Contact> GetLead(int id);
+        Task<PaginatedList<Contact>> GetAllLeads(int? page, int? perPage, string? status = null, string sortOrder = null);
     }
 }

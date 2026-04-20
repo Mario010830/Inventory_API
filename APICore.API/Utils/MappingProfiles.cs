@@ -88,7 +88,9 @@ namespace APICore.API.Utils
                 .ForMember(d => d.Inventories, opts => opts.Ignore())
                 .ForMember(d => d.InventoryMovements, opts => opts.Ignore())
                 .ForMember(d => d.LocationOffers, opts => opts.Ignore())
-                .ForMember(d => d.Tipo, opts => opts.Ignore());
+                .ForMember(d => d.Tipo, opts => opts.Ignore())
+                .ForMember(d => d.StockParentProduct, opts => opts.Ignore())
+                .ForMember(d => d.ChildStockProducts, opts => opts.Ignore());
 
             CreateMap<Inventory, InventoryResponse>()
                 .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null))
@@ -106,24 +108,24 @@ namespace APICore.API.Utils
                 .ForMember(d => d.ProductName, opts => opts.MapFrom(s => s.Product != null ? s.Product.Name : null))
                 .ForMember(d => d.LocationName, opts => opts.MapFrom(s => s.Location != null ? s.Location.Name : null));
 
-            CreateMap<Supplier, SupplierResponse>();
-            CreateMap<CreateSupplierRequest, Supplier>()
-                .ForMember(d => d.Id, opts => opts.Ignore())
-                .ForMember(d => d.CreatedAt, opts => opts.Ignore())
-                .ForMember(d => d.ModifiedAt, opts => opts.Ignore())
-                .ForMember(d => d.InventoryMovements, opts => opts.Ignore());
+            CreateMap<Contact, SupplierResponse>()
+                .ForMember(d => d.Name, opts => opts.MapFrom(s => s.Name));
 
             CreateMap<Contact, ContactResponse>();
+
+            CreateMap<Contact, LeadResponse>()
+                .ForMember(d => d.Status, opts => opts.MapFrom(s => s.LeadStatus ?? (s.LeadConvertedAt.HasValue ? "Convertido" : "")))
+                .ForMember(d => d.ConvertedToContactId, opts => opts.MapFrom(s => s.LeadConvertedAt.HasValue ? (int?)s.Id : null))
+                .ForMember(d => d.ConvertedAt, opts => opts.MapFrom(s => s.LeadConvertedAt));
+
             CreateMap<CreateContactRequest, Contact>()
                 .ForMember(d => d.Id, opts => opts.Ignore())
                 .ForMember(d => d.CreatedAt, opts => opts.Ignore())
-                .ForMember(d => d.ModifiedAt, opts => opts.Ignore());
-
-            CreateMap<Lead, LeadResponse>();
-            CreateMap<CreateLeadRequest, Lead>()
-                .ForMember(d => d.Id, opts => opts.Ignore())
-                .ForMember(d => d.CreatedAt, opts => opts.Ignore())
-                .ForMember(d => d.ModifiedAt, opts => opts.Ignore());
+                .ForMember(d => d.ModifiedAt, opts => opts.Ignore())
+                .ForMember(d => d.IsCustomer, opts => opts.MapFrom(s => s.IsCustomer ?? true))
+                .ForMember(d => d.IsSupplier, opts => opts.MapFrom(s => s.IsSupplier ?? false))
+                .ForMember(d => d.LeadStatus, opts => opts.MapFrom(s => s.LeadStatus))
+                .ForMember(d => d.LeadConvertedAt, opts => opts.Ignore());
 
             CreateMap<PaymentMethod, PaymentMethodResponse>();
 

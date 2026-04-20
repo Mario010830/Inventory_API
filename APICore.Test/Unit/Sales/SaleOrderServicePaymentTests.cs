@@ -173,7 +173,8 @@ namespace APICore.Tests.Unit.Sales
                 .ReturnsAsync(default(Promotion));
             var metrics = new Mock<ICatalogMetricsTrackingService>();
             metrics.Setup(x => x.StagePurchaseCompletedEvents(It.IsAny<SaleOrder>()));
-            return new SaleOrderService(uow, ctx, loc.Object, new TestInventorySettings(), promo.Object, metrics.Object);
+            var loyalty = new Mock<ILoyaltyService>();
+            return new SaleOrderService(uow, ctx, loc.Object, new TestInventorySettings(), promo.Object, metrics.Object, loyalty.Object);
         }
 
         [Fact]

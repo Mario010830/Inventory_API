@@ -23,6 +23,13 @@ namespace APICore.Data.Entities
         public int? LocationId { get; set; }
         public int? OrganizationId { get; set; }
         public int? RoleId { get; set; }
+
+        /// <summary>Vista preferida para listas en móvil: "table" | "comfortable"; null = sin elegir (mostrar asistente).</summary>
+        public string? MobileListLayout { get; set; }
+
+        /// <summary>Salario (opcional; uso interno de la organización).</summary>
+        public decimal? Salary { get; set; }
+
         public virtual Location? Location { get; set; }
         public virtual Organization? Organization { get; set; }
         public virtual Role? Role { get; set; }

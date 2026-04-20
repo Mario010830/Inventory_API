@@ -12,5 +12,13 @@ namespace APICore.Common.DTO.Request
         public string? Origin { get; set; }
         public bool IsActive { get; set; } = true;
         public int? AssignedUserId { get; set; }
+
+        /// <summary>Si no se envía en creación simple, se asume true (cliente).</summary>
+        public bool? IsCustomer { get; set; }
+
+        public bool? IsSupplier { get; set; }
+
+        /// <summary>Estado de pipeline lead; null si no aplica.</summary>
+        public string? LeadStatus { get; set; }
     }
 }

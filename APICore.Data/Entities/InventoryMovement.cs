@@ -22,13 +22,13 @@ namespace APICore.Data.Entities
         public decimal? NewStock { get; set; }
         public decimal? UnitCost { get; set; }
         public decimal? UnitPrice { get; set; }
-        public int? SupplierId { get; set; }
+        public int? SupplierContactId { get; set; }
         public string? ReferenceDocument { get; set; }
         public int? UserId { get; set; }
         public int? SaleOrderId { get; set; }
         public Product Product { get; set; } = null!;
         public Location Location { get; set; } = null!;
-        public Supplier? Supplier { get; set; }
+        public Contact? SupplierContact { get; set; }
         public SaleOrder? SaleOrder { get; set; }
     }
 }

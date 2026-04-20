@@ -100,6 +100,13 @@ namespace APICore.Services.Impls
                 orgLocationIds.Contains(i.LocationId))
                 .ExecuteDeleteAsync();
 
+            await _uow.LoyaltyEventRepository.FindBy(e => e.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+            await _uow.CustomerLoyaltyAccountRepository.FindBy(a => a.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+            await _uow.LoyaltySettingsRepository.FindBy(s => s.OrganizationId == organizationId)
+                .ExecuteDeleteAsync();
+
             await _uow.SaleOrderItemRepository.FindBy(oi => 
                 oi.SaleOrder != null && oi.SaleOrder.OrganizationId == organizationId)
                 .ExecuteDeleteAsync();
@@ -127,11 +134,7 @@ namespace APICore.Services.Impls
             await _uow.ProductCategoryRepository.FindBy(pc => pc.OrganizationId == organizationId)
                 .ExecuteDeleteAsync();
 
-            await _uow.SupplierRepository.FindBy(s => s.OrganizationId == organizationId)
-                .ExecuteDeleteAsync();
             await _uow.ContactRepository.FindBy(c => c.OrganizationId == organizationId)
-                .ExecuteDeleteAsync();
-            await _uow.LeadRepository.FindBy(l => l.OrganizationId == organizationId)
                 .ExecuteDeleteAsync();
 
             await _uow.UserRepository.FindBy(u => u.OrganizationId == organizationId)
