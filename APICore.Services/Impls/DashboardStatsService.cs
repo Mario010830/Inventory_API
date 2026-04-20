@@ -3,6 +3,7 @@ using APICore.Data;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
 using APICore.Data.UoW;
+using APICore.Services.Utils;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -41,11 +42,9 @@ namespace APICore.Services.Impls
             var lowStockCount = await inventories.CountAsync(i => i.CurrentStock <= minStock);
 
             var now = DateTime.UtcNow;
-            var weekStart = now.Date.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday);
-            if (now.DayOfWeek == DayOfWeek.Sunday) weekStart = weekStart.AddDays(-7);
-            var weekEnd = weekStart.AddDays(7);
+            var (weekStartUtc, weekEndUtcExclusive) = CubaBusinessCalendar.GetCubaWeekRangeUtc(now);
             var movements = _uow.InventoryMovementRepository.GetAll();
-            var weeklyOrders = await movements.CountAsync(m => m.Type == InventoryMovementType.entry && m.CreatedAt >= weekStart && m.CreatedAt < weekEnd);
+            var weeklyOrders = await movements.CountAsync(m => m.Type == InventoryMovementType.entry && m.CreatedAt >= weekStartUtc && m.CreatedAt < weekEndUtcExclusive);
 
             return new DashboardSummaryResponse
             {
@@ -62,18 +61,18 @@ namespace APICore.Services.Impls
 
         public async Task<ChartLineResponse> GetInventoryFlowAsync(int days, DateTime? from, DateTime? to)
         {
-            var end = (to ?? DateTime.UtcNow).Date;
-            var start = (from ?? end.AddDays(-days)).Date;
-            if (start > end) start = end.AddDays(-days);
+            var (startUtc, endUtcExclusive, loopStartCuba, loopEndCuba) = CubaBusinessCalendar.ResolveMovementFlowRange(days, from, to);
 
             var movements = await _uow.InventoryMovementRepository.GetAll()
-                .Where(m => m.CreatedAt >= start && m.CreatedAt < end.AddDays(1))
+                .Where(m => m.CreatedAt >= startUtc && m.CreatedAt < endUtcExclusive)
                 .ToListAsync();
 
-            var byDay = movements.GroupBy(m => m.CreatedAt.Date).ToDictionary(g => g.Key, g => g.Count());
+            var byDay = movements
+                .GroupBy(m => TimeZoneInfo.ConvertTimeFromUtc(m.CreatedAt, CubaBusinessCalendar.CubaTimeZone).Date)
+                .ToDictionary(g => g.Key, g => g.Count());
             var culture = new CultureInfo("es-ES");
             var data = new List<ChartDataPointResponse>();
-            for (var d = start; d <= end; d = d.AddDays(1))
+            for (var d = loopStartCuba; d <= loopEndCuba; d = d.AddDays(1))
             {
                 var count = byDay.TryGetValue(d, out var c) ? c : 0;
                 data.Add(new ChartDataPointResponse
@@ -140,7 +139,8 @@ namespace APICore.Services.Impls
 
         public async Task<ListCardResponse> GetListTopMovementsAsync(int days, int limit)
         {
-            var start = DateTime.UtcNow.Date.AddDays(-days);
+            var (cubaTodayStartUtc, _) = CubaBusinessCalendar.GetCubaCalendarDayRangeUtc(DateTime.UtcNow);
+            var start = cubaTodayStartUtc.AddDays(-days);
             var byProduct = await _uow.InventoryMovementRepository.GetAll()
                 .Where(m => m.CreatedAt >= start)
                 .GroupBy(m => m.ProductId)
@@ -255,16 +255,16 @@ namespace APICore.Services.Impls
 
         public async Task<ChartComposedResponse> GetEntriesVsExitsAsync(int days, DateTime? from, DateTime? to)
         {
-            var end = (to ?? DateTime.UtcNow).Date;
-            var start = (from ?? end.AddDays(-days)).Date;
-            if (start > end) start = end.AddDays(-days);
+            var (startUtc, endUtcExclusive, loopStartCuba, loopEndCuba) = CubaBusinessCalendar.ResolveMovementFlowRange(days, from, to);
             var movements = await _uow.InventoryMovementRepository.GetAll()
-                .Where(m => m.CreatedAt >= start && m.CreatedAt < end.AddDays(1))
+                .Where(m => m.CreatedAt >= startUtc && m.CreatedAt < endUtcExclusive)
                 .ToListAsync();
-            var byDay = movements.GroupBy(m => m.CreatedAt.Date).ToDictionary(g => g.Key, g => g.ToList());
+            var byDay = movements
+                .GroupBy(m => TimeZoneInfo.ConvertTimeFromUtc(m.CreatedAt, CubaBusinessCalendar.CubaTimeZone).Date)
+                .ToDictionary(g => g.Key, g => g.ToList());
             var culture = new CultureInfo("es-ES");
             var data = new List<ChartComposedPointResponse>();
-            for (var d = start; d <= end; d = d.AddDays(1))
+            for (var d = loopStartCuba; d <= loopEndCuba; d = d.AddDays(1))
             {
                 var list = byDay.TryGetValue(d, out var l) ? l : new List<InventoryMovement>();
                 var entries = list.Count(x => x.Type == InventoryMovementType.entry);
@@ -363,27 +363,18 @@ namespace APICore.Services.Impls
                 p = "month";
 
             var now = DateTime.UtcNow;
-            var today = now.Date;
-
             return p switch
             {
-                "day" => (today, today.AddDays(1), p),
-                "week" => ResolveUtcWeekRange(today, p),
-                "year" => (new DateTime(today.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    new DateTime(today.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc), p),
-                _ => (new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc),
-                    new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1), "month"),
+                "day" => WithLabel(CubaBusinessCalendar.GetCubaCalendarDayRangeUtc(now), p),
+                "week" => WithLabel(CubaBusinessCalendar.GetCubaWeekRangeUtc(now), p),
+                "year" => WithLabel(CubaBusinessCalendar.GetCubaYearRangeUtc(now), p),
+                _ => WithLabel(CubaBusinessCalendar.GetCubaMonthRangeUtc(now), "month"),
             };
         }
 
-        /// <summary>Semana calendario empezando en lunes (UTC).</summary>
-        private static (DateTime fromUtc, DateTime toUtcExclusive, string normalizedPeriod) ResolveUtcWeekRange(DateTime todayUtc, string p)
-        {
-            var dow = (int)todayUtc.DayOfWeek;
-            var daysFromMonday = dow == 0 ? 6 : dow - (int)DayOfWeek.Monday;
-            var monday = todayUtc.AddDays(-daysFromMonday);
-            return (monday, monday.AddDays(7), p);
-        }
+        private static (DateTime fromUtc, DateTime toUtcExclusive, string normalizedPeriod) WithLabel(
+            (DateTime fromUtc, DateTime toUtcExclusive) range, string normalizedPeriod) =>
+            (range.fromUtc, range.toUtcExclusive, normalizedPeriod);
 
         public async Task<ProductStatsResponse> GetProductStatsAsync(DateTime? from, DateTime? to)
         {
@@ -393,9 +384,9 @@ namespace APICore.Services.Impls
                 .Where(i => i.Product != null && !i.Product.IsDeleted);
             var inventoryValue = await inventories.SumAsync(i => i.CurrentStock * (i.Product != null ? i.Product.Costo : 0));
             var criticalStockCount = await inventories.CountAsync(i => i.CurrentStock <= minStock);
-            var today = DateTime.UtcNow.Date;
+            var (cubaTodayStartUtc, cubaTodayEndExclusiveUtc) = CubaBusinessCalendar.GetCubaCalendarDayRangeUtc(DateTime.UtcNow);
             var movementsToday = await _uow.InventoryMovementRepository.GetAll()
-                .CountAsync(m => m.CreatedAt >= today && m.CreatedAt < today.AddDays(1));
+                .CountAsync(m => m.CreatedAt >= cubaTodayStartUtc && m.CreatedAt < cubaTodayEndExclusiveUtc);
 
             return new ProductStatsResponse
             {
@@ -529,9 +520,9 @@ namespace APICore.Services.Impls
                 .Where(i => i.Product != null && !i.Product.IsDeleted);
             var totalValue = await inventories.SumAsync(i => i.CurrentStock * (i.Product != null ? i.Product.Costo : 0));
             var lowStockCount = await inventories.CountAsync(i => i.CurrentStock <= minStock);
-            var today = DateTime.UtcNow.Date;
+            var (cubaTodayStartUtc, cubaTodayEndExclusiveUtc) = CubaBusinessCalendar.GetCubaCalendarDayRangeUtc(DateTime.UtcNow);
             var movementsCount = await _uow.InventoryMovementRepository.GetAll()
-                .CountAsync(m => m.CreatedAt >= today && m.CreatedAt < today.AddDays(1));
+                .CountAsync(m => m.CreatedAt >= cubaTodayStartUtc && m.CreatedAt < cubaTodayEndExclusiveUtc);
             var productsCount = await _uow.ProductRepository.GetAll().Where(p => !p.IsDeleted).CountAsync();
 
             return new InventoryStatsResponse
@@ -581,12 +572,16 @@ namespace APICore.Services.Impls
             var query = _uow.InventoryMovementRepository.GetAll();
             if (todayOnly)
             {
-                var today = DateTime.UtcNow.Date;
-                query = query.Where(m => m.CreatedAt >= today && m.CreatedAt < today.AddDays(1));
+                var (cubaTodayStartUtc, cubaTodayEndExclusiveUtc) = CubaBusinessCalendar.GetCubaCalendarDayRangeUtc(DateTime.UtcNow);
+                query = query.Where(m => m.CreatedAt >= cubaTodayStartUtc && m.CreatedAt < cubaTodayEndExclusiveUtc);
             }
             else if (from.HasValue && to.HasValue)
             {
-                query = query.Where(m => m.CreatedAt >= from.Value && m.CreatedAt < to.Value.AddDays(1));
+                var f = from.Value.Date;
+                var t = to.Value.Date;
+                var startUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(f, DateTimeKind.Unspecified), CubaBusinessCalendar.CubaTimeZone);
+                var endUtcExclusive = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(t.AddDays(1), DateTimeKind.Unspecified), CubaBusinessCalendar.CubaTimeZone);
+                query = query.Where(m => m.CreatedAt >= startUtc && m.CreatedAt < endUtcExclusive);
             }
 
             var total = await query.CountAsync();
@@ -614,18 +609,18 @@ namespace APICore.Services.Impls
 
         public async Task<ChartComposedResponse> GetMovementFlowWithCumulativeAsync(int days)
         {
-            var end = DateTime.UtcNow.Date;
-            var start = end.AddDays(-days);
+            var (startUtc, endUtcExclusive, loopStartCuba, loopEndCuba) = CubaBusinessCalendar.ResolveMovementFlowRange(days, null, null);
             var movements = await _uow.InventoryMovementRepository.GetAll()
-                .Where(m => m.CreatedAt >= start && m.CreatedAt < end.AddDays(1))
+                .Where(m => m.CreatedAt >= startUtc && m.CreatedAt < endUtcExclusive)
                 .ToListAsync();
-            var byDay = movements.GroupBy(m => m.CreatedAt.Date)
+            var byDay = movements
+                .GroupBy(m => TimeZoneInfo.ConvertTimeFromUtc(m.CreatedAt, CubaBusinessCalendar.CubaTimeZone).Date)
                 .OrderBy(g => g.Key)
                 .ToDictionary(g => g.Key, g => g.Count());
             var culture = new CultureInfo("es-ES");
             var data = new List<ChartComposedPointResponse>();
             var cumulative = 0;
-            for (var d = start; d <= end; d = d.AddDays(1))
+            for (var d = loopStartCuba; d <= loopEndCuba; d = d.AddDays(1))
             {
                 var count = byDay.TryGetValue(d, out var c) ? c : 0;
                 cumulative += count;

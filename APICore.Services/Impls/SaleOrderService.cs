@@ -393,7 +393,7 @@ namespace APICore.Services.Impls
                 .Where(r => r.Status == SaleReturnStatus.completed && r.CreatedAt >= cutoff)
                 .ToListAsync();
 
-            var today = DateTime.UtcNow.Date;
+            var (cubaTodayStartUtc, cubaTodayEndExclusiveUtc) = CubaBusinessCalendar.GetCubaCalendarDayRangeUtc(DateTime.UtcNow);
             var revenue = orders.Sum(o => o.Total);
             var cogs = orders.SelectMany(o => o.Items).Sum(i => i.UnitCost * i.Quantity);
             var grossMargin = revenue - cogs;
@@ -401,7 +401,7 @@ namespace APICore.Services.Impls
             return new SaleStatsResponse
             {
                 TotalSales = orders.Count,
-                SalesToday = orders.Count(o => o.CreatedAt.Date == today),
+                SalesToday = orders.Count(o => o.CreatedAt >= cubaTodayStartUtc && o.CreatedAt < cubaTodayEndExclusiveUtc),
                 TotalRevenue = revenue,
                 TotalCogs = cogs,
                 GrossMargin = grossMargin,

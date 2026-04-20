@@ -9,6 +9,7 @@ using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
 using APICore.Data.UoW;
 using APICore.Services;
+using APICore.Services.Utils;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -48,14 +49,24 @@ namespace APICore.Services.Impls
             if (dateFrom == null && dateTo == null)
                 return (null, null);
 
-            var from = dateFrom?.Date;
-            var toExclusive = dateTo?.Date.AddDays(1);
+            DateTime? fromUtc = null;
+            DateTime? toExclusiveUtc = null;
+            if (dateFrom.HasValue)
+            {
+                var d = dateFrom.Value.Date;
+                fromUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(d, DateTimeKind.Unspecified), CubaBusinessCalendar.CubaTimeZone);
+            }
 
-            // Si el usuario manda rangos inconsistentes, aplicamos “sin filtro”.
-            if (from.HasValue && toExclusive.HasValue && from.Value >= toExclusive.Value)
+            if (dateTo.HasValue)
+            {
+                var d = dateTo.Value.Date.AddDays(1);
+                toExclusiveUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(d, DateTimeKind.Unspecified), CubaBusinessCalendar.CubaTimeZone);
+            }
+
+            if (fromUtc.HasValue && toExclusiveUtc.HasValue && fromUtc.Value >= toExclusiveUtc.Value)
                 return (null, null);
 
-            return (from, toExclusive);
+            return (fromUtc, toExclusiveUtc);
         }
 
         private IQueryable<SaleOrder> BuildConfirmedSaleOrdersDetailedQuery(DateTime? dateFrom, DateTime? dateTo, int? locationId)
@@ -296,16 +307,18 @@ namespace APICore.Services.Impls
             // Agregados: ejecutar secuencialmente para no romper DbContext.
             var totalOrdersCount = (int)(await ordersQuery.LongCountAsync());
             var totalSales = (await ordersQuery.SumAsync(o => (decimal?)o.Total)) ?? 0m;
-            var salesByDayRows = await ordersQuery
-                .GroupBy(o => new { o.CreatedAt.Year, o.CreatedAt.Month, o.CreatedAt.Day })
-                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Total = g.Sum(x => x.Total) })
-                .ToListAsync();
+            var orderTotalsForDay = await ordersQuery.Select(o => new { o.CreatedAt, o.Total }).ToListAsync();
+            var salesByDayRows = orderTotalsForDay
+                .GroupBy(o => TimeZoneInfo.ConvertTimeFromUtc(o.CreatedAt, CubaBusinessCalendar.CubaTimeZone).Date)
+                .Select(g => new { Year = g.Key.Year, Month = g.Key.Month, Day = g.Key.Day, Total = g.Sum(x => x.Total) })
+                .ToList();
 
             var totalReturns = (await returnsQuery.SumAsync(r => (decimal?)r.Total)) ?? 0m;
-            var returnsByDayRows = await returnsQuery
-                .GroupBy(r => new { r.CreatedAt.Year, r.CreatedAt.Month, r.CreatedAt.Day })
-                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Total = g.Sum(x => x.Total) })
-                .ToListAsync();
+            var returnTotalsForDay = await returnsQuery.Select(r => new { r.CreatedAt, r.Total }).ToListAsync();
+            var returnsByDayRows = returnTotalsForDay
+                .GroupBy(r => TimeZoneInfo.ConvertTimeFromUtc(r.CreatedAt, CubaBusinessCalendar.CubaTimeZone).Date)
+                .Select(g => new { Year = g.Key.Year, Month = g.Key.Month, Day = g.Key.Day, Total = g.Sum(x => x.Total) })
+                .ToList();
 
             var ordersListQuery = BuildConfirmedSaleOrdersDetailedQuery(dateFrom, dateTo, locationId);
             var ordersListRows = await ordersListQuery

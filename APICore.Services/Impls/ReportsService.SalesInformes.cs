@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using APICore.Common.DTO.Response.Reports;
+using APICore.Services.Utils;
 using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -41,16 +42,18 @@ namespace APICore.Services.Impls
 
             var totalOrdersCount = (int)(await ordersQuery.LongCountAsync());
             var totalSales = (await ordersQuery.SumAsync(o => (decimal?)o.Total)) ?? 0m;
-            var salesByDayRows = await ordersQuery
-                .GroupBy(o => new { o.CreatedAt.Year, o.CreatedAt.Month, o.CreatedAt.Day })
-                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Total = g.Sum(x => x.Total) })
-                .ToListAsync();
+            var orderTotalsForDay = await ordersQuery.Select(o => new { o.CreatedAt, o.Total }).ToListAsync();
+            var salesByDayRows = orderTotalsForDay
+                .GroupBy(o => TimeZoneInfo.ConvertTimeFromUtc(o.CreatedAt, CubaBusinessCalendar.CubaTimeZone).Date)
+                .Select(g => new { Year = g.Key.Year, Month = g.Key.Month, Day = g.Key.Day, Total = g.Sum(x => x.Total) })
+                .ToList();
 
             var totalReturns = (await returnsQuery.SumAsync(r => (decimal?)r.Total)) ?? 0m;
-            var returnsByDayRows = await returnsQuery
-                .GroupBy(r => new { r.CreatedAt.Year, r.CreatedAt.Month, r.CreatedAt.Day })
-                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Total = g.Sum(x => x.Total) })
-                .ToListAsync();
+            var returnTotalsForDay = await returnsQuery.Select(r => new { r.CreatedAt, r.Total }).ToListAsync();
+            var returnsByDayRows = returnTotalsForDay
+                .GroupBy(r => TimeZoneInfo.ConvertTimeFromUtc(r.CreatedAt, CubaBusinessCalendar.CubaTimeZone).Date)
+                .Select(g => new { Year = g.Key.Year, Month = g.Key.Month, Day = g.Key.Day, Total = g.Sum(x => x.Total) })
+                .ToList();
 
             var salesByDay = salesByDayRows
                 .Select(x => new SalesByDayDto
