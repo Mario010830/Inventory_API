@@ -38,5 +38,11 @@ namespace APICore.Services
         /// No requiere autenticación. Para filtros en el catálogo.
         /// </summary>
         Task<IEnumerable<TagDto>> GetPublicTagsAsync();
+
+        /// <summary>
+        /// Devuelve un pedido público por id para enlaces compartidos.
+        /// No requiere autenticación y no expone costos internos.
+        /// </summary>
+        Task<PublicOrderResponse?> GetPublicOrderByIdAsync(int id);
     }
 }

@@ -54,6 +54,22 @@ namespace APICore.API.Controllers
         }
 
         /// <summary>
+        /// Obtiene un pedido público por id para la vista compartida /pedido/{id}.
+        /// No requiere autenticación.
+        /// </summary>
+        [HttpGet("order/{id}")]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        public async Task<IActionResult> GetPublicOrderById(int id)
+        {
+            var order = await _publicCatalogService.GetPublicOrderByIdAsync(id);
+            if (order == null)
+                return NotFound(new ApiResponse((int)HttpStatusCode.NotFound, "La orden no existe o no está disponible."));
+
+            return Ok(new ApiOkResponse(order));
+        }
+
+        /// <summary>
         /// Catálogo de productos disponibles para venta en una ubicación específica.
         /// Incluye stock actual en esa ubicación, imagen principal (imagenUrl) y lista images con todas las URLs ordenadas.
         /// No expone costos.

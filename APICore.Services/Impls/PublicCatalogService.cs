@@ -666,6 +666,42 @@ namespace APICore.Services.Impls
             return tags;
         }
 
+        public async Task<PublicOrderResponse?> GetPublicOrderByIdAsync(int id)
+        {
+            var order = await _context.SaleOrders
+                .IgnoreQueryFilters()
+                .Include(s => s.Items)
+                    .ThenInclude(i => i.Product)
+                .Include(s => s.Location)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (order == null)
+                return null;
+
+            return new PublicOrderResponse
+            {
+                Id = order.Id,
+                Folio = order.Folio,
+                Status = order.Status.ToString(),
+                Subtotal = order.Subtotal,
+                DiscountAmount = order.DiscountAmount,
+                Total = order.Total,
+                Notes = order.Notes,
+                CreatedAt = order.CreatedAt,
+                LocationId = order.LocationId,
+                LocationName = order.Location?.Name,
+                Items = order.Items.Select(i => new PublicOrderItemResponse
+                {
+                    ProductId = i.ProductId,
+                    ProductName = i.Product?.Name,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    Discount = i.Discount,
+                    LineTotal = i.LineTotal
+                }).ToList()
+            };
+        }
+
         private async Task<Dictionary<int, Promotion>> GetActivePromotionsMapAsync(List<int> productIds, int? organizationId)
         {
             if (productIds.Count == 0)
