@@ -145,7 +145,8 @@ namespace APICore.Services.Impls
             await _uow.SaleOrderRepository.AddAsync(order);
             await _uow.CommitAsync();
 
-            return await LoadFullOrder(order.Id);
+            var createdOrder = await LoadFullOrder(order.Id);
+            return createdOrder ?? order;
         }
 
         public async Task<SaleOrder> ConfirmSaleOrder(int id, int userId)
