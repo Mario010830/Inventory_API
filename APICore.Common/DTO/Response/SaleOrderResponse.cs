@@ -3,6 +3,15 @@ using System.Collections.Generic;
 
 namespace APICore.Common.DTO.Response
 {
+    /// <summary>
+    /// Cuerpo mínimo del POST crear orden (201) para que el cliente pueda enlazar /pedido/{id} sin cargar el detalle completo.
+    /// </summary>
+    public class SaleOrderCreatedResponse
+    {
+        public int Id { get; set; }
+        public string? Folio { get; set; }
+    }
+
     public class SaleOrderResponse
     {
         public int Id { get; set; }

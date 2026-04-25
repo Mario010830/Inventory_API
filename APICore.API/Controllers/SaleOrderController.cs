@@ -36,8 +36,8 @@ namespace APICore.API.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await _saleOrderService.CreateSaleOrder(request, userId);
-            var response = _mapper.Map<SaleOrderResponse>(result);
-            return Created("", new ApiCreatedResponse(response));
+            var created = new SaleOrderCreatedResponse { Id = result.Id, Folio = result.Folio };
+            return Created("", new ApiCreatedResponse(created));
         }
 
         [HttpGet]
