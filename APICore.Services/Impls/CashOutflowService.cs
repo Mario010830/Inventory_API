@@ -50,9 +50,6 @@ namespace APICore.Services.Impls
             if (businessDate > DateTime.UtcNow.Date)
                 throw new BaseBadRequestException("La fecha del retiro no puede ser futura.");
 
-            if (await IsDailySummaryClosedAsync(orgId, locationId, businessDate))
-                throw new BaseBadRequestException("No se pueden registrar retiros: el cuadre del día ya está cerrado.");
-
             var amount = Math.Round(request.Amount, AmountDecimals, MidpointRounding.AwayFromZero);
             if (amount <= 0)
                 throw new BaseBadRequestException("El importe del retiro debe ser mayor que cero.");
@@ -82,9 +79,6 @@ namespace APICore.Services.Impls
             if (entity == null || entity.OrganizationId != orgId)
                 throw new BaseNotFoundException("Retiro de caja no encontrado.");
 
-            if (await IsDailySummaryClosedAsync(orgId, entity.LocationId, entity.Date))
-                throw new BaseBadRequestException("No se puede eliminar el retiro: el cuadre del día ya está cerrado.");
-
             _uow.CashOutflowRepository.Delete(entity);
             await _uow.CommitAsync();
         }
@@ -110,17 +104,6 @@ namespace APICore.Services.Impls
                 .ToListAsync();
 
             return list.Select(MapToDto).ToList();
-        }
-
-        private async Task<bool> IsDailySummaryClosedAsync(int organizationId, int locationId, DateTime date)
-        {
-            var d = date.Date;
-            return await _context.DailySummaries
-                .IgnoreQueryFilters()
-                .AnyAsync(s => s.OrganizationId == organizationId
-                            && s.LocationId == locationId
-                            && s.Date == d
-                            && s.IsClosed);
         }
 
         private static CashOutflowResponseDto MapToDto(CashOutflow c) =>

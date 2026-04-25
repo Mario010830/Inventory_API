@@ -5,12 +5,14 @@ using APICore.Data.Entities;
 using APICore.Data.Entities.Enums;
 using APICore.Data.UoW;
 using APICore.Services.Exceptions;
+using APICore.Services.Utils;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -49,44 +51,58 @@ namespace APICore.Services.Impls
             if (!locationExists)
                 throw new BaseBadRequestException("La localización indicada no pertenece a tu organización.");
 
+            // Fecha contable = día civil en Cuba (el front debe enviar la fecha de negocio en Cuba).
             var targetDate = request.Date.Date;
+            var (dayStartUtc, dayEndUtc) = CubaBusinessCalendar.GetCubaCalendarDayRangeUtcForCubaDate(targetDate);
 
-            var existing = await _context.DailySummaries
+            // Periodo del turno: desde el último cierre del mismo día/ubicación, o inicio del día contable.
+            var lastClosedAt = await _context.DailySummaries
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(d => d.OrganizationId == orgId
-                                       && d.LocationId == locationId
-                                       && d.Date == targetDate
-                                       && d.IsClosed);
-            if (existing != null)
-                throw new DailySummaryAlreadyClosedBadRequestException();
+                .Where(d => d.OrganizationId == orgId
+                         && d.LocationId == locationId
+                         && d.Date == targetDate
+                         && d.IsClosed
+                         && d.ClosedAt != null)
+                .OrderByDescending(d => d.ClosedAt)
+                .Select(d => d.ClosedAt)
+                .FirstOrDefaultAsync();
 
-            // --- Calcular TotalSales ---
-            var dayStart = targetDate;
-            var dayEnd   = targetDate.AddDays(1);
+            var periodStart = lastClosedAt ?? dayStartUtc;
+            if (periodStart < dayStartUtc)
+                periodStart = dayStartUtc;
+            if (periodStart > dayEndUtc)
+                throw new BaseBadRequestException("El periodo del cuadre no es válido para la fecha indicada.");
 
+            var periodEnd = DateTime.UtcNow;
+            if (periodEnd < periodStart)
+                throw new BaseBadRequestException("No se puede cerrar un cuadre con un periodo vacío.");
+
+            // --- Calcular TotalSales (hora de confirmación ≈ ModifiedAt) ---
             var totalSales = await _context.SaleOrders
                 .IgnoreQueryFilters()
                 .Where(s => s.LocationId == locationId
                          && s.OrganizationId == orgId
                          && s.Status == SaleOrderStatus.confirmed
-                         && s.CreatedAt >= dayStart
-                         && s.CreatedAt < dayEnd)
+                         && s.ModifiedAt >= periodStart
+                         && s.ModifiedAt < periodEnd)
                 .SumAsync(s => (decimal?)s.Total) ?? 0m;
 
-            // --- Calcular TotalReturns ---
+            // --- Calcular TotalReturns (solo completadas; momento operativo ≈ ModifiedAt) ---
             var totalReturns = await _context.SaleReturns
                 .IgnoreQueryFilters()
                 .Where(r => r.LocationId == locationId
                          && r.OrganizationId == orgId
-                         && r.CreatedAt >= dayStart
-                         && r.CreatedAt < dayEnd)
+                         && r.Status == SaleReturnStatus.completed
+                         && r.ModifiedAt >= periodStart
+                         && r.ModifiedAt < periodEnd)
                 .SumAsync(r => (decimal?)r.Total) ?? 0m;
 
             var totalOutflows = await _context.CashOutflows
                 .IgnoreQueryFilters()
                 .Where(c => c.LocationId == locationId
                          && c.OrganizationId == orgId
-                         && c.Date == targetDate)
+                         && c.CreatedAt >= periodStart
+                         && c.CreatedAt < periodEnd)
                 .SumAsync(c => (decimal?)c.Amount) ?? 0m;
 
             // --- Armar InventoryItems por producto vendido ---
@@ -97,8 +113,8 @@ namespace APICore.Services.Impls
                          && i.SaleOrder.LocationId == locationId
                          && i.SaleOrder.OrganizationId == orgId
                          && i.SaleOrder.Status == SaleOrderStatus.confirmed
-                         && i.SaleOrder.CreatedAt >= dayStart
-                         && i.SaleOrder.CreatedAt < dayEnd)
+                         && i.SaleOrder.ModifiedAt >= periodStart
+                         && i.SaleOrder.ModifiedAt < periodEnd)
                 .Select(i => new
                 {
                     i.ProductId,
@@ -147,59 +163,40 @@ namespace APICore.Services.Impls
                 ? DailySummaryStatus.Balanced
                 : (difference > 0m ? DailySummaryStatus.Surplus : DailySummaryStatus.Shortage);
 
-            // Reutilizar o crear el cuadre del día (puede existir uno abierto)
-            var dailySummary = await _context.DailySummaries
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(d => d.OrganizationId == orgId
-                                       && d.LocationId == locationId
-                                       && d.Date == targetDate);
-
-            if (dailySummary == null)
+            // Un registro por cierre de turno (varios el mismo día contable).
+            var dailySummary = new DailySummary
             {
-                dailySummary = new DailySummary
-                {
-                    Date           = targetDate,
-                    LocationId     = locationId,
-                    OrganizationId = orgId,
-                };
-                await _uow.DailySummaryRepository.AddAsync(dailySummary);
-                await _uow.CommitAsync();
-            }
-
-            dailySummary.OpeningCash    = request.OpeningCash;
-            dailySummary.TotalSales     = totalSales;
-            dailySummary.TotalReturns   = totalReturns;
-            dailySummary.TotalOutflows  = totalOutflows;
-            dailySummary.ExpectedCash   = expectedCash;
-            dailySummary.ActualCash     = request.ActualCash;
-            dailySummary.Difference     = difference;
-            dailySummary.Status         = status;
-            dailySummary.Notes          = request.Notes;
-            dailySummary.IsClosed       = true;
-
-            // Reemplazar ítems de inventario
-            var existingItems = await _context.DailySummaryInventoryItems
-                .Where(i => i.DailySummaryId == dailySummary.Id)
-                .ToListAsync();
-            foreach (var old in existingItems)
-                _context.DailySummaryInventoryItems.Remove(old);
-
+                Date = targetDate,
+                PeriodStart = periodStart,
+                ClosedAt = periodEnd,
+                LocationId = locationId,
+                OrganizationId = orgId,
+                OpeningCash = request.OpeningCash,
+                TotalSales = totalSales,
+                TotalReturns = totalReturns,
+                TotalOutflows = totalOutflows,
+                ExpectedCash = expectedCash,
+                ActualCash = request.ActualCash,
+                Difference = difference,
+                Status = status,
+                Notes = request.Notes,
+                IsClosed = true,
+            };
             foreach (var inv in inventoryItems)
-            {
-                inv.DailySummaryId = dailySummary.Id;
-                await _uow.DailySummaryInventoryItemRepository.AddAsync(inv);
-            }
+                dailySummary.InventoryItems.Add(inv);
 
-            _uow.DailySummaryRepository.Update(dailySummary);
+            await _uow.DailySummaryRepository.AddAsync(dailySummary);
             await _uow.CommitAsync();
 
             return await LoadAndMapAsync(dailySummary.Id);
         }
 
-        public async Task<DailySummaryResponseDto?> GetByDateAsync(DateTime date, int? locationId = null)
+        public async Task<IReadOnlyList<DailySummaryResponseDto>> GetByDateAsync(DateTime date, int? locationId = null)
         {
-            var orgId      = _context.CurrentOrganizationId;
+            var orgId = _context.CurrentOrganizationId;
             var resolvedLocationId = ResolveLocationId(locationId);
+            if (resolvedLocationId <= 0)
+                throw new BaseBadRequestException("Debes indicar la localización (LocationId) para consultar el cuadre diario.");
             var targetDate = date.Date;
 
             var query = _context.DailySummaries
@@ -207,19 +204,43 @@ namespace APICore.Services.Impls
                 .Include(d => d.InventoryItems)
                 .Where(d => d.OrganizationId == orgId && d.Date == targetDate);
 
-            if (resolvedLocationId > 0)
-                query = query.Where(d => d.LocationId == resolvedLocationId);
+            query = query.Where(d => d.LocationId == resolvedLocationId);
+
+            var summaries = await query
+                .OrderBy(d => d.PeriodStart)
+                .ThenBy(d => d.Id)
+                .ToListAsync();
+
+            var result = new List<DailySummaryResponseDto>();
+            foreach (var s in summaries)
+                result.Add(await MapToDtoAsync(s));
+            return result;
+        }
+
+        public async Task<DailySummaryResponseDto?> GetByIdAsync(int id)
+        {
+            var orgId = _context.CurrentOrganizationId;
+            if (orgId <= 0)
+                return null;
+
+            var query = _context.DailySummaries
+                .IgnoreQueryFilters()
+                .Include(d => d.InventoryItems)
+                .Where(d => d.Id == id && d.OrganizationId == orgId);
+
+            if (_context.CurrentLocationId > 0)
+                query = query.Where(d => d.LocationId == _context.CurrentLocationId);
 
             var summary = await query.FirstOrDefaultAsync();
-            if (summary == null) return null;
-
-            return await MapToDtoAsync(summary);
+            return summary == null ? null : await MapToDtoAsync(summary);
         }
 
         public async Task<List<DailySummaryResponseDto>> GetHistoryAsync(DateTime from, DateTime to, int? locationId = null)
         {
             var orgId              = _context.CurrentOrganizationId;
             var resolvedLocationId = ResolveLocationId(locationId);
+            if (resolvedLocationId <= 0)
+                throw new BaseBadRequestException("Debes indicar la localización (LocationId) para el historial de cuadres.");
             var fromDate           = from.Date;
             var toDate             = to.Date.AddDays(1);
 
@@ -230,11 +251,12 @@ namespace APICore.Services.Impls
                          && d.Date >= fromDate
                          && d.Date < toDate);
 
-            if (resolvedLocationId > 0)
-                query = query.Where(d => d.LocationId == resolvedLocationId);
+            query = query.Where(d => d.LocationId == resolvedLocationId);
 
             var summaries = await query
                 .OrderByDescending(d => d.Date)
+                .ThenByDescending(d => d.ClosedAt)
+                .ThenByDescending(d => d.Id)
                 .ToListAsync();
 
             var result = new List<DailySummaryResponseDto>();
@@ -243,15 +265,16 @@ namespace APICore.Services.Impls
             return result;
         }
 
-        public async Task<byte[]> ExportCsvAsync(DateTime date)
+        public async Task<byte[]> ExportCsvAsync(DailySummaryExportRequestDto request)
         {
-            var summary = await GetByDateAsync(date)
+            var summary = await ResolveExportSummaryAsync(request)
                 ?? throw new DailySummaryNotFoundException();
 
             var sb = new StringBuilder();
 
             sb.AppendLine("CUADRE DIARIO");
             sb.AppendLine($"Fecha;{summary.Date:yyyy-MM-dd}");
+            sb.AppendLine($"Periodo (hora Cuba);{FormatCubaPeriodLine(summary)}");
             sb.AppendLine($"Estado;{summary.Status}");
             sb.AppendLine($"Cerrado;{(summary.IsClosed ? "Sí" : "No")}");
             if (!string.IsNullOrEmpty(summary.Notes))
@@ -284,9 +307,9 @@ namespace APICore.Services.Impls
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
 
-        public async Task<byte[]> ExportPdfAsync(DateTime date)
+        public async Task<byte[]> ExportPdfAsync(DailySummaryExportRequestDto request)
         {
-            var summary = await GetByDateAsync(date)
+            var summary = await ResolveExportSummaryAsync(request)
                 ?? throw new DailySummaryNotFoundException();
 
             QuestPDF.Settings.License = LicenseType.Community;
@@ -307,6 +330,8 @@ namespace APICore.Services.Impls
                                 .Bold().FontSize(16).AlignCenter();
                             col.Item().Text($"Fecha: {summary.Date:dd/MM/yyyy}")
                                 .FontSize(11).AlignCenter();
+                            col.Item().Text($"Periodo (hora Cuba): {FormatCubaPeriodLine(summary)}")
+                                .FontSize(10).AlignCenter();
                             col.Item().Text($"Estado: {summary.Status}  |  Cerrado: {(summary.IsClosed ? "Sí" : "No")}")
                                 .AlignCenter();
                             if (!string.IsNullOrEmpty(summary.Notes))
@@ -384,6 +409,17 @@ namespace APICore.Services.Impls
 
         // ──────────── helpers privados ────────────
 
+        private async Task<DailySummaryResponseDto?> ResolveExportSummaryAsync(DailySummaryExportRequestDto request)
+        {
+            if (request.Id.HasValue)
+                return await GetByIdAsync(request.Id.Value);
+
+            var list = await GetByDateAsync(request.Date, request.LocationId);
+            if (list.Count == 0)
+                return null;
+            return list.OrderByDescending(s => s.ClosedAt ?? DateTime.MinValue).First();
+        }
+
         private async Task<DailySummaryResponseDto> LoadAndMapAsync(int id)
         {
             var summary = await _context.DailySummaries
@@ -394,11 +430,13 @@ namespace APICore.Services.Impls
 
         private async Task<DailySummaryResponseDto> MapToDtoAsync(DailySummary d)
         {
+            var periodEndExclusive = d.ClosedAt ?? d.ModifiedAt;
             var outflows = await _context.CashOutflows
                 .IgnoreQueryFilters()
                 .Where(c => c.OrganizationId == d.OrganizationId
                          && c.LocationId == d.LocationId
-                         && c.Date == d.Date)
+                         && c.CreatedAt >= d.PeriodStart
+                         && c.CreatedAt < periodEndExclusive)
                 .OrderBy(c => c.Id)
                 .Select(c => new CashOutflowResponseDto
                 {
@@ -412,10 +450,15 @@ namespace APICore.Services.Impls
                 })
                 .ToListAsync();
 
+            var (physSurplus, physShortage, physNet) =
+                await PhysicalInventoryCountService.GetValuedTotalsForDailySummaryAsync(_context, d.Id);
+
             return new DailySummaryResponseDto
             {
                 Id             = d.Id,
                 Date           = d.Date,
+                PeriodStart    = d.PeriodStart,
+                ClosedAt       = d.ClosedAt,
                 LocationId     = d.LocationId,
                 OrganizationId = d.OrganizationId,
                 OpeningCash    = d.OpeningCash,
@@ -428,6 +471,9 @@ namespace APICore.Services.Impls
                 Status         = d.Status,
                 Notes          = d.Notes,
                 IsClosed       = d.IsClosed,
+                PhysicalCountTotalSurplusValued = physSurplus,
+                PhysicalCountTotalShortageValued = physShortage,
+                PhysicalCountNetValuedImpact = physNet,
                 CashOutflows   = outflows,
                 InventoryItems = d.InventoryItems?
                     .Select(i => new DailySummaryInventoryItemDto
@@ -470,6 +516,27 @@ namespace APICore.Services.Impls
             table.Cell().Padding(3).AlignRight().Text($"{item.StockBefore:F2}");
             table.Cell().Padding(3).AlignRight().Text($"{item.StockAfter:F2}");
             table.Cell().Padding(3).AlignRight().Text($"{item.StockDifference:F2}");
+        }
+
+        /// <summary>Convierte un instante almacenado en UTC (timestamptz) a texto en hora civil de Cuba.</summary>
+        private static string FormatCubaLocalFromUtc(DateTime utcInstant)
+        {
+            var utc = utcInstant.Kind switch
+            {
+                DateTimeKind.Utc => utcInstant,
+                DateTimeKind.Local => utcInstant.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(utcInstant, DateTimeKind.Utc),
+            };
+            return TimeZoneInfo.ConvertTimeFromUtc(utc, CubaBusinessCalendar.CubaTimeZone)
+                .ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("es-ES"));
+        }
+
+        private static string FormatCubaPeriodLine(DailySummaryResponseDto summary)
+        {
+            var start = FormatCubaLocalFromUtc(summary.PeriodStart);
+            if (!summary.ClosedAt.HasValue)
+                return $"{start} → —";
+            return $"{start} → {FormatCubaLocalFromUtc(summary.ClosedAt.Value)}";
         }
     }
 }

@@ -50,6 +50,8 @@ namespace APICore.Data
         public DbSet<MetricsEvent> MetricsEvents { get; set; }
         public DbSet<DailySummary> DailySummaries { get; set; }
         public DbSet<DailySummaryInventoryItem> DailySummaryInventoryItems { get; set; }
+        public DbSet<PhysicalInventoryCount> PhysicalInventoryCounts { get; set; }
+        public DbSet<PhysicalInventoryCountItem> PhysicalInventoryCountItems { get; set; }
         public DbSet<Loan> Loans { get; set; }
         public DbSet<LoanPayment> LoanPayments { get; set; }
         public DbSet<PaymentMethod> PaymentMethods { get; set; }
@@ -681,8 +683,7 @@ namespace APICore.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<DailySummary>()
-                .HasIndex(d => new { d.OrganizationId, d.LocationId, d.Date })
-                .IsUnique();
+                .HasIndex(d => new { d.OrganizationId, d.LocationId, d.Date });
 
             // DailySummaryInventoryItem
             modelBuilder.Entity<DailySummaryInventoryItem>()
@@ -700,6 +701,56 @@ namespace APICore.Data
                 IgnoreLocationFilter
                 || (CurrentLocationId > 0 && i.DailySummary != null && i.DailySummary.LocationId == CurrentLocationId)
                 || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && i.DailySummary != null && i.DailySummary.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<PhysicalInventoryCount>()
+                .HasOne(p => p.DailySummary)
+                .WithMany(d => d.PhysicalInventoryCounts)
+                .HasForeignKey(p => p.DailySummaryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PhysicalInventoryCount>()
+                .HasOne(p => p.User)
+                .WithMany()
+                .HasForeignKey(p => p.UserId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<PhysicalInventoryCount>()
+                .HasIndex(p => p.DailySummaryId)
+                .IsUnique();
+
+            modelBuilder.Entity<PhysicalInventoryCountItem>()
+                .HasOne(i => i.PhysicalInventoryCount)
+                .WithMany(p => p.Items)
+                .HasForeignKey(i => i.PhysicalInventoryCountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PhysicalInventoryCountItem>()
+                .HasOne(i => i.Product)
+                .WithMany()
+                .HasForeignKey(i => i.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PhysicalInventoryCountItem>()
+                .Property(i => i.ExpectedQuantity).HasPrecision(18, 4);
+            modelBuilder.Entity<PhysicalInventoryCountItem>()
+                .Property(i => i.CountedQuantity).HasPrecision(18, 4);
+            modelBuilder.Entity<PhysicalInventoryCountItem>()
+                .Property(i => i.Difference).HasPrecision(18, 4);
+            modelBuilder.Entity<PhysicalInventoryCountItem>()
+                .Property(i => i.UnitPrice).HasPrecision(18, 4);
+            modelBuilder.Entity<PhysicalInventoryCountItem>()
+                .Property(i => i.ValuedDifference).HasPrecision(18, 4);
+
+            modelBuilder.Entity<PhysicalInventoryCount>().HasQueryFilter(p =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && p.DailySummary != null && p.DailySummary.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && p.DailySummary != null && p.DailySummary.OrganizationId == CurrentOrganizationId));
+
+            modelBuilder.Entity<PhysicalInventoryCountItem>().HasQueryFilter(i =>
+                IgnoreLocationFilter
+                || (CurrentLocationId > 0 && i.PhysicalInventoryCount != null && i.PhysicalInventoryCount.DailySummary != null && i.PhysicalInventoryCount.DailySummary.LocationId == CurrentLocationId)
+                || (CurrentLocationId <= 0 && CurrentOrganizationId > 0 && i.PhysicalInventoryCount != null && i.PhysicalInventoryCount.DailySummary != null && i.PhysicalInventoryCount.DailySummary.OrganizationId == CurrentOrganizationId));
 
             modelBuilder.Entity<CashOutflow>()
                 .HasOne(c => c.Organization)

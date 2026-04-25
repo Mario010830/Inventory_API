@@ -114,6 +114,7 @@ namespace APICore.API
             services.AddTransient<IMetricsService, MetricsService>();
             services.AddTransient<ICatalogMetricsTrackingService, CatalogMetricsTrackingService>();
             services.AddTransient<IDailySummaryService, DailySummaryService>();
+            services.AddTransient<IPhysicalInventoryCountService, PhysicalInventoryCountService>();
             services.AddTransient<ICashOutflowService, CashOutflowService>();
 
             services.AddRagServices(Configuration);

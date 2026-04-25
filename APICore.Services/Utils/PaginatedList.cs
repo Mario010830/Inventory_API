@@ -56,7 +56,19 @@ namespace APICore.Services.Utils
 
         public static async Task<PaginatedList<T>> CreateAsync(IQueryable<T> source, int pageIndex, int perPage)
         {
+            if (pageIndex < 1)
+                pageIndex = 1;
+            if (perPage < 1)
+                perPage = 1;
+
             var count = source.Count();
+            var totalPages = count == 0 ? 0 : (int)Math.Ceiling(count / (double)perPage);
+            // Evita result=[] cuando el cliente pide page>totalPages (p. ej. subió pageSize y dejó page=2).
+            if (count == 0)
+                pageIndex = 1;
+            else if (pageIndex > totalPages)
+                pageIndex = totalPages;
+
             var items = source.Skip((pageIndex - 1) * perPage).Take(perPage).ToList();
             return await Task.FromResult(new PaginatedList<T>(items, count, pageIndex, perPage));
         }

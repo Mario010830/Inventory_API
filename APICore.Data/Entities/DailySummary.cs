@@ -6,9 +6,16 @@ namespace APICore.Data.Entities
 {
     public class DailySummary : BaseEntity
     {
-        /// <summary>Fecha del cuadre (solo fecha, sin hora). Usar Date.Date al asignar.</summary>
+        /// <summary>Día contable en Cuba (solo fecha civil; alinear con <c>request.Date</c> del API).</summary>
         [Required]
         public DateTime Date { get; set; }
+
+        /// <summary>Inicio del periodo del turno en UTC (inclusive). Primer turno del día = 00:00 civil Cuba en UTC.</summary>
+        [Required]
+        public DateTime PeriodStart { get; set; }
+
+        /// <summary>Cierre del cuadre en UTC (instante de cierre; el siguiente turno empieza después).</summary>
+        public DateTime? ClosedAt { get; set; }
 
         [Required]
         public int LocationId { get; set; }
@@ -50,5 +57,7 @@ namespace APICore.Data.Entities
         public Organization? Organization { get; set; }
 
         public ICollection<DailySummaryInventoryItem> InventoryItems { get; set; } = new List<DailySummaryInventoryItem>();
+
+        public ICollection<PhysicalInventoryCount> PhysicalInventoryCounts { get; set; } = new List<PhysicalInventoryCount>();
     }
 }

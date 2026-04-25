@@ -50,6 +50,7 @@ namespace APICore.Data.UoW
             WebPushSubscriptionRepository ??= new GenericRepository<WebPushSubscription>(_context);
             DailySummaryRepository ??= new GenericRepository<DailySummary>(_context);
             DailySummaryInventoryItemRepository ??= new GenericRepository<DailySummaryInventoryItem>(_context);
+            PhysicalInventoryCountRepository ??= new GenericRepository<PhysicalInventoryCount>(_context);
             MetricsEventRepository ??= new GenericRepository<MetricsEvent>(_context);
             LoanRepository ??= new GenericRepository<Loan>(_context);
             LoanPaymentRepository ??= new GenericRepository<LoanPayment>(_context);
@@ -93,6 +94,7 @@ namespace APICore.Data.UoW
         public IGenericRepository<WebPushSubscription> WebPushSubscriptionRepository { get; set; }
         public IGenericRepository<DailySummary> DailySummaryRepository { get; set; }
         public IGenericRepository<DailySummaryInventoryItem> DailySummaryInventoryItemRepository { get; set; }
+        public IGenericRepository<PhysicalInventoryCount> PhysicalInventoryCountRepository { get; set; }
         public IGenericRepository<MetricsEvent> MetricsEventRepository { get; set; }
         public IGenericRepository<Loan> LoanRepository { get; set; }
         public IGenericRepository<LoanPayment> LoanPaymentRepository { get; set; }

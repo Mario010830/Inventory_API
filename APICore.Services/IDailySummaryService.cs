@@ -9,9 +9,10 @@ namespace APICore.Services
     public interface IDailySummaryService
     {
         Task<DailySummaryResponseDto> GenerateAsync(DailySummaryRequestDto request);
-        Task<DailySummaryResponseDto?> GetByDateAsync(DateTime date, int? locationId = null);
+        Task<IReadOnlyList<DailySummaryResponseDto>> GetByDateAsync(DateTime date, int? locationId = null);
+        Task<DailySummaryResponseDto?> GetByIdAsync(int id);
         Task<List<DailySummaryResponseDto>> GetHistoryAsync(DateTime from, DateTime to, int? locationId = null);
-        Task<byte[]> ExportCsvAsync(DateTime date);
-        Task<byte[]> ExportPdfAsync(DateTime date);
+        Task<byte[]> ExportCsvAsync(DailySummaryExportRequestDto request);
+        Task<byte[]> ExportPdfAsync(DailySummaryExportRequestDto request);
     }
 }

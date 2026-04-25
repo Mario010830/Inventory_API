@@ -3,6 +3,7 @@ using System;
 using APICore.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace APICore.Data.Migrations
 {
     [DbContext(typeof(CoreDbContext))]
-    partial class CoreDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260425201308_DailySummaryMultipleShiftsPerDay")]
+    partial class DailySummaryMultipleShiftsPerDay
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -951,98 +954,6 @@ namespace APICore.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Permissions");
-                });
-
-            modelBuilder.Entity("APICore.Data.Entities.PhysicalInventoryCount", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CountedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("DailySummaryId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<int?>("UserId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DailySummaryId")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("PhysicalInventoryCounts");
-                });
-
-            modelBuilder.Entity("APICore.Data.Entities.PhysicalInventoryCountItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal?>("CountedQuantity")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("Difference")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)");
-
-                    b.Property<decimal>("ExpectedQuantity")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)");
-
-                    b.Property<DateTime>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("PhysicalInventoryCountId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ProductId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ProductName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)");
-
-                    b.Property<decimal>("ValuedDifference")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PhysicalInventoryCountId");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("PhysicalInventoryCountItems");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.Plan", b =>
@@ -2295,43 +2206,6 @@ namespace APICore.Data.Migrations
                     b.Navigation("Organization");
                 });
 
-            modelBuilder.Entity("APICore.Data.Entities.PhysicalInventoryCount", b =>
-                {
-                    b.HasOne("APICore.Data.Entities.DailySummary", "DailySummary")
-                        .WithMany("PhysicalInventoryCounts")
-                        .HasForeignKey("DailySummaryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("APICore.Data.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("DailySummary");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("APICore.Data.Entities.PhysicalInventoryCountItem", b =>
-                {
-                    b.HasOne("APICore.Data.Entities.PhysicalInventoryCount", "PhysicalInventoryCount")
-                        .WithMany("Items")
-                        .HasForeignKey("PhysicalInventoryCountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("APICore.Data.Entities.Product", "Product")
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("PhysicalInventoryCount");
-
-                    b.Navigation("Product");
-                });
-
             modelBuilder.Entity("APICore.Data.Entities.Product", b =>
                 {
                     b.HasOne("APICore.Data.Entities.ProductCategory", "Category")
@@ -2710,8 +2584,6 @@ namespace APICore.Data.Migrations
             modelBuilder.Entity("APICore.Data.Entities.DailySummary", b =>
                 {
                     b.Navigation("InventoryItems");
-
-                    b.Navigation("PhysicalInventoryCounts");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.Loan", b =>
@@ -2755,11 +2627,6 @@ namespace APICore.Data.Migrations
             modelBuilder.Entity("APICore.Data.Entities.Permission", b =>
                 {
                     b.Navigation("RolePermissions");
-                });
-
-            modelBuilder.Entity("APICore.Data.Entities.PhysicalInventoryCount", b =>
-                {
-                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("APICore.Data.Entities.Plan", b =>

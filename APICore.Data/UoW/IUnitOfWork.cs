@@ -42,6 +42,7 @@ namespace APICore.Data.UoW
         IGenericRepository<WebPushSubscription> WebPushSubscriptionRepository { get; set; }
         IGenericRepository<DailySummary> DailySummaryRepository { get; set; }
         IGenericRepository<DailySummaryInventoryItem> DailySummaryInventoryItemRepository { get; set; }
+        IGenericRepository<PhysicalInventoryCount> PhysicalInventoryCountRepository { get; set; }
         IGenericRepository<MetricsEvent> MetricsEventRepository { get; set; }
         IGenericRepository<Loan> LoanRepository { get; set; }
         IGenericRepository<LoanPayment> LoanPaymentRepository { get; set; }

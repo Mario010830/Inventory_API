@@ -32,9 +32,19 @@ namespace APICore.Services.Utils
         public static (DateTime fromUtcInclusive, DateTime toUtcExclusive) GetCubaCalendarDayRangeUtc(DateTime utcNow)
         {
             var nowCuba = TimeZoneInfo.ConvertTimeFromUtc(utcNow, CubaTimeZone);
-            var d = nowCuba.Date;
+            return GetCubaCalendarDayRangeUtcForCubaDate(nowCuba.Date);
+        }
+
+        /// <summary>
+        /// Rango UTC [inicio, fin) del día civil en Cuba para una fecha de calendario dada (solo componente fecha;
+        /// se interpreta como año/mes/día en Cuba, no en UTC).
+        /// </summary>
+        public static (DateTime fromUtcInclusive, DateTime toUtcExclusive) GetCubaCalendarDayRangeUtcForCubaDate(DateTime cubaCivilDate)
+        {
+            var d = cubaCivilDate.Date;
             var fromUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(d, DateTimeKind.Unspecified), CubaTimeZone);
-            return (fromUtc, fromUtc.AddDays(1));
+            var toUtcExclusive = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(d.AddDays(1), DateTimeKind.Unspecified), CubaTimeZone);
+            return (fromUtc, toUtcExclusive);
         }
 
         public static (DateTime fromUtcInclusive, DateTime toUtcExclusive) GetCubaWeekRangeUtc(DateTime utcNow)

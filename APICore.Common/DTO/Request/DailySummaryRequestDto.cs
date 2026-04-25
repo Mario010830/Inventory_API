@@ -4,6 +4,7 @@ namespace APICore.Common.DTO.Request
 {
     public class DailySummaryRequestDto
     {
+        /// <summary>Día contable en Cuba (fecha civil; el backend calcula 00:00–24:00 en zona America/Havana).</summary>
         public DateTime Date { get; set; }
 
         /// <summary>
