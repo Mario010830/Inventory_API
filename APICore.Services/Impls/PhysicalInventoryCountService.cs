@@ -48,15 +48,14 @@ namespace APICore.Services.Impls
                 await _context.SaveChangesAsync();
             }
 
+            // Solo inventariables: los elaborados no llevan stock en ubicación y no entran al conteo físico.
+            // Lista completa del catálogo inventariable de la org para detectar faltantes por ventas no registradas.
+            var productIds = await GetCountableProductIdsAsync(summary.OrganizationId);
+            if (productIds.Count == 0)
+                throw new BaseBadRequestException("No hay productos configurados para contar en esta ubicación.");
+
             var soldByProduct = await GetSoldQuantitiesByProductAsync(summary, periodEnd);
             var returnedByProduct = await GetReturnedQuantitiesByProductAsync(summary, periodEnd);
-            var productIds = soldByProduct.Keys
-                .Union(returnedByProduct.Keys)
-                .Distinct()
-                .ToList();
-
-            if (productIds.Count == 0)
-                throw new BaseBadRequestException("No hay productos con ventas o devoluciones en el periodo de este cuadre.");
 
             var products = await _context.Products
                 .IgnoreQueryFilters()
@@ -97,7 +96,7 @@ namespace APICore.Services.Impls
             }
 
             if (entity.Items.Count == 0)
-                throw new BaseBadRequestException("No se pudieron generar líneas de conteo para los productos del periodo.");
+                throw new BaseBadRequestException("No se pudieron generar líneas de conteo.");
 
             await _uow.PhysicalInventoryCountRepository.AddAsync(entity);
             await _uow.CommitAsync();
@@ -286,6 +285,19 @@ namespace APICore.Services.Impls
                 .ToListAsync();
 
             return raw.ToDictionary(x => x.ProductId, x => x.Qty);
+        }
+
+        /// <summary>Ids de productos inventariables de la organización (sin elaborados).</summary>
+        private async Task<List<int>> GetCountableProductIdsAsync(int organizationId)
+        {
+            return await _context.Products
+                .IgnoreQueryFilters()
+                .Where(p => p.OrganizationId == organizationId
+                    && !p.IsDeleted
+                    && p.Tipo == ProductType.inventariable)
+                .OrderBy(p => p.Name)
+                .Select(p => p.Id)
+                .ToListAsync();
         }
 
         private async Task<decimal> GetCurrentStockAsync(int productId, int locationId)
